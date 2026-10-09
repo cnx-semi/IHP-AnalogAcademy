@@ -67,6 +67,42 @@
 <li><strong>Supply noise.</strong> The 3.3 V analog supply and the 1.2 V digital supply should be separate on the board and in the package; clock-path jitter budgets (section 3) assume a quiet supply.</li>
 </ul>
 
+<h3>Cell catalogue and relevance to our blocks</h3>
+<p>Names come from the PDK's xschem symbols and library files; descriptions marked <span class="v-idle">check</span> are inferred from the names, so confirm them in the PDK documentation. Relevance: <span class="v-ok">core</span> = needed for ADC/DAC/PLL as planned; <span class="v-warn">carrier</span> = only if the 24 GHz carrier is on chip; <span class="v-idle">minor</span> = supporting or unlikely.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Cell</th><th>What it is</th><th>Where it fits in our work</th><th>Relevance</th></tr></thead>
+<tbody>
+<tr><td colspan="4"><strong>Transistors</strong></td></tr>
+<tr><td><code>sg13_lv_nmos</code> / <code>pmos</code></td><td>1.2 V thin-oxide MOS</td><td>Comparator, SAR logic, DAC switches, dividers, phase detector, clock buffers</td><td class="v-ok">core</td></tr>
+<tr><td><code>sg13_hv_nmos</code> / <code>pmos</code></td><td>3.3 V thick-oxide MOS</td><td>Bootstrapped sampling switch, bias, DAC current sources, level shifters, pad drivers</td><td class="v-ok">core</td></tr>
+<tr><td><code>sg13_lv_rf_nmos</code> / <code>pmos</code></td><td>RF layout variants of the 1.2 V devices <span class="v-idle">check</span></td><td>CMOS LNA, mixer, doubler or first divider stages</td><td class="v-warn">carrier</td></tr>
+<tr><td><code>sg13_hv_rf_nmos</code> / <code>pmos</code></td><td>RF layout variants of the 3.3 V devices <span class="v-idle">check</span></td><td>Higher-swing RF drivers; rarely needed</td><td class="v-idle">minor</td></tr>
+<tr><td><code>npn13G2</code>, <code>npn13G2l</code>, <code>npn13G2v</code> (+ <code>_5t</code> versions)</td><td>SiGe HBTs; the variants trade speed against breakdown voltage <span class="v-idle">check</span>; <code>_5t</code> adds a separate substrate terminal <span class="v-idle">check</span></td><td>24 GHz oscillator, first dividers, LNA, buffers</td><td class="v-warn">carrier</td></tr>
+<tr><td><code>pnpMPA</code></td><td>PNP bipolar</td><td>Bandgap reference and temperature sensing for bias and calibration</td><td class="v-idle">minor</td></tr>
+<tr><td><code>schottky_nbl1</code></td><td>Schottky diode</td><td>RF detector or passive mixer; unlikely</td><td class="v-idle">minor</td></tr>
+<tr><td colspan="4"><strong>Passives</strong></td></tr>
+<tr><td><code>rsil</code>, <code>rppd</code>, <code>rhigh</code></td><td>Polysilicon resistors: low, medium, high value</td><td>Terminations, bias, PLL loop filter, any resistor-ladder DAC stage</td><td class="v-ok">core</td></tr>
+<tr><td><code>cap_cmim</code></td><td>MIM capacitor</td><td>SAR capacitor array, loop filter, sampling capacitor</td><td class="v-ok">core</td></tr>
+<tr><td><code>cap_cmomi</code></td><td>Metal-finger (MOM) capacitor</td><td>Extra capacitance with no additional mask; coarse array bits</td><td class="v-ok">core</td></tr>
+<tr><td><code>cap_rfcmim</code></td><td>MIM capacitor tuned for RF use <span class="v-idle">check</span></td><td>Matching networks and DC blocks at 24 GHz</td><td class="v-warn">carrier</td></tr>
+<tr><td><code>moscap_n</code> / <code>moscap_p</code></td><td>MOS capacitor</td><td>Supply decoupling next to analog and clock blocks</td><td class="v-ok">core</td></tr>
+<tr><td><code>cap_cpara</code></td><td>Parasitic capacitance helper <span class="v-idle">check</span></td><td>Modelling only</td><td class="v-idle">minor</td></tr>
+<tr><td><code>sg13_svaricap</code>, <code>sg13_hv_svaricap</code></td><td>MOS varactors (voltage-tuned capacitors)</td><td>LC oscillator tuning range; also fine trimming</td><td class="v-warn">carrier</td></tr>
+<tr><td><code>inductor</code>, <code>inductor3</code></td><td>On-chip spiral inductors (the 3 version is a variant) <span class="v-idle">check</span></td><td>24 GHz oscillator, matching, filters; EM-simulate before use</td><td class="v-warn">carrier</td></tr>
+<tr><td colspan="4"><strong>Isolation, protection, pads</strong></td></tr>
+<tr><td><code>ntap1</code>, <code>ptap1</code>, <code>sub</code></td><td>Well and substrate contacts</td><td>Guard rings and substrate ties around analog blocks</td><td class="v-ok">core</td></tr>
+<tr><td><code>isolbox</code></td><td>Isolation structure <span class="v-idle">check</span></td><td>Walling off analog from digital; works with isolated NMOS</td><td class="v-ok">core</td></tr>
+<tr><td><code>diodevdd_2kv</code>/<code>4kv</code>, <code>diodevss_2kv</code>/<code>4kv</code></td><td>ESD protection diodes (2 kV and 4 kV rated)</td><td>Every analog pad: sample input, DAC output, supply pins</td><td class="v-ok">core</td></tr>
+<tr><td><code>nmoscl_2</code>, <code>nmoscl_4</code></td><td>NMOS ESD clamp <span class="v-idle">check</span></td><td>Supply clamp between rails</td><td class="v-ok">core</td></tr>
+<tr><td><code>dantenna</code>, <code>dpantenna</code></td><td>Antenna-rule protection diodes</td><td>Long routes on large analog nets during manufacturing</td><td class="v-idle">minor</td></tr>
+<tr><td><code>bondpad</code></td><td>Bond pad</td><td>Package connection; limits the RF input at high frequency</td><td class="v-ok">core</td></tr>
+<tr><td colspan="4"><strong>Digital and memory libraries</strong></td></tr>
+<tr><td>Standard-cell library (<code>sg13g2_stdcell</code>)</td><td>1.2 V logic gates, flip-flops, buffers; about 80 cell types</td><td>SAR control, interleaving controller, calibration, divider logic; synthesis runs on these</td><td class="v-ok">core</td></tr>
+<tr><td>I/O cell library (<code>sg13g2_io</code>)</td><td>3.3 V pad cells with a 1.2 V core side</td><td>Digital pads; analog pads usually bypass these</td><td class="v-ok">core</td></tr>
+<tr><td>SRAM macros (<code>RM_IHPSG13_1P_*</code>)</td><td>Single-port memory from 256&times;8 up to 2048&times;64 bits</td><td>Capture buffer for converter data; part of the Croc SoC</td><td class="v-ok">core</td></tr>
+</tbody></table></div>
+<blockquote><p><strong>What is missing.</strong> The PDK has no ready ADC, DAC, PLL, oscillator or reference cells; those come from the course or from our own design. It also has no dedicated high-speed comparator, bootstrapped switch or current-steering cell, so the AnalogAcademy Module 3 versions are the starting point. The RF and HBT cells are the ones to measure first (section 6) if the carrier ends up on chip.</p></blockquote>
+
 <blockquote><p><strong>Number to reconcile.</strong> The course README (and this page) quote HBT fT 350 GHz and fmax 500 GHz. <code>adc/docs/03-silicon.html</code> says fT 300 GHz. IHP has quoted slightly different pairs across process revisions, so treat both as ballpark and measure on the actual model (section 6). The 720 GHz fmax record on IHP's site is a different, experimental technology, not SG13G2.</p></blockquote>
 
 <h2 id="ft">2. fT and fmax<a class="anchor" href="#ft"> #</a></h2>
