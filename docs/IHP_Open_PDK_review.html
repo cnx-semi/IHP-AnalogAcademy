@@ -15,8 +15,9 @@
 <li><a href="#what">1. What the PDK gives</a></li>
 <li><a href="#ft">2. fT and fmax</a></li>
 <li><a href="#limits">3. Conservative frequency limits</a></li>
-<li><a href="#radar">4. The radar project</a></li>
-<li><a href="#verify">5. Verify before trusting</a></li>
+<li><a href="#bands">4. Frequency bands and our target</a></li>
+<li><a href="#radar">5. The radar project</a></li>
+<li><a href="#verify">6. Verify before trusting</a></li>
 </ul>
 </nav>
 <main>
@@ -29,6 +30,7 @@
 <div><dt>MOS supplies</dt><dd>1.2 V and 3.3 V only</dd></div>
 <div><dt>HBT fT / fmax</dt><dd>350 / 500 GHz (peak)</dd></div>
 <div><dt>Radar spec</dt><dd class="v-crit">Not yet defined (D1)</dd></div>
+<div><dt>Target</dt><dd class="v-warn">24 GHz, 250&ndash;500 MHz</dd></div>
 </dl>
 
 <ul class="verdict-key">
@@ -50,7 +52,7 @@
 <tr><td>Other tooling</td><td>KLayout DRC and PCells, xschem, magic, netgen, OpenEMS, Palace and QUCS-S setups</td><td>EM simulation of inductors and lines is possible with open tools</td></tr>
 </tbody></table></div>
 
-<blockquote><p><strong>Number to reconcile.</strong> The course README (and this page) quote HBT fT 350 GHz and fmax 500 GHz. <code>adc/docs/03-silicon.html</code> says fT 300 GHz. IHP has quoted slightly different pairs across process revisions, so treat both as ballpark and measure on the actual model (section 5). The 720 GHz fmax record on IHP's site is a different, experimental technology, not SG13G2.</p></blockquote>
+<blockquote><p><strong>Number to reconcile.</strong> The course README (and this page) quote HBT fT 350 GHz and fmax 500 GHz. <code>adc/docs/03-silicon.html</code> says fT 300 GHz. IHP has quoted slightly different pairs across process revisions, so treat both as ballpark and measure on the actual model (section 6). The 720 GHz fmax record on IHP's site is a different, experimental technology, not SG13G2.</p></blockquote>
 
 <h2 id="ft">2. fT and fmax<a class="anchor" href="#ft"> #</a></h2>
 <div class="table-wrap"><table>
@@ -112,9 +114,37 @@
 <tr><td>Clock jitter (rms)</td><td>Whole clock path</td><td>&le; 1.6 ps at 100 MHz input; &le; 3.2 ps at 50 MHz</td><td>&le; 5 ps at 100 MHz (costs about 0.5 bit)</td><td><code>SNR = &minus;20&middot;log<sub>10</sub>(2&pi;&middot;f<sub>in</sub>&middot;&sigma;<sub>j</sub>)</code>; jitter SNR held &ge; 60 dB so it does not add to the 50 dB limit of 8 bits</td><td class="v-ok">standard</td></tr>
 </tbody></table></div>
 
-<blockquote><p><strong>How to read this.</strong> Anything marked <span class="v-warn">estimate</span> is a design rule of thumb, not a datasheet value. The CMOS rows have no fT because the open docs do not publish one for the LV or HV MOS devices: measure it (section 5) before relying on them. The 3.3 V thick-oxide devices are slower than the 1.2 V ones; use them where swing matters (sampling switch, bias, I/O), not in the fast path.</p></blockquote>
+<blockquote><p><strong>How to read this.</strong> Anything marked <span class="v-warn">estimate</span> is a design rule of thumb, not a datasheet value. The CMOS rows have no fT because the open docs do not publish one for the LV or HV MOS devices: measure it (section 6) before relying on them. The 3.3 V thick-oxide devices are slower than the 1.2 V ones; use them where swing matters (sampling switch, bias, I/O), not in the fast path.</p></blockquote>
 
-<h2 id="radar">4. The radar project<a class="anchor" href="#radar"> #</a></h2>
+<h2 id="bands">4. Frequency bands and our target<a class="anchor" href="#bands"> #</a></h2>
+<p>Band allocations below are from memory of the ITU / 3GPP / regional rules, not checked against the regulator. Confirm with the Thai regulator (NBTC) and the target market before relying on any row.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Band</th><th>Use</th><th>Fits our project?</th><th>IHP SG13G2 reading (from section 3)</th></tr></thead>
+<tbody>
+<tr><td>24.0&ndash;24.25 GHz</td><td>ISM; short-range radar (motion, speed, level, robot sensing)</td><td><span class="v-ok">baseline</span> &mdash; 250 MHz</td><td>Inside the 35 GHz HBT ceiling: fT/f &asymp; 15, fmax/f &asymp; 21. Comfortable</td></tr>
+<tr><td>21.65&ndash;26.65 GHz</td><td>Old automotive wideband short-range radar (5 GHz wide)</td><td><span class="v-warn">needed for 500 MHz</span></td><td>Same as above; the whole span stays under the ceiling. Regulatory status is the risk: the EU phased it out for cars</td></tr>
+<tr><td>24.25&ndash;27.5 GHz</td><td>5G NR FR2 (n258), 6G mid-band candidate</td><td><span class="v-crit">interferer</span></td><td>Upper part of the wideband span overlaps it: needs filtering, and a licence or test permit</td></tr>
+<tr><td>7.125&ndash;24.25 GHz</td><td>3GPP FR3 &ldquo;upper mid-band&rdquo;, main 6G candidate</td><td><span class="v-idle">reference</span></td><td>24 GHz is its top edge. CMOS-only LC VCO (~10 GHz) covers its lower half</td></tr>
+<tr><td>23.6&ndash;24.0 GHz</td><td>Passive weather-satellite sensing, protected</td><td><span class="v-warn">avoid</span></td><td>Keep out-of-band emission low just below 24.0 GHz</td></tr>
+<tr><td>76&ndash;81 GHz</td><td>Automotive radar</td><td><span class="v-warn">stretch</span></td><td>2&times; over the conservative ceiling; separate test structure and non-QFN package (section 5)</td></tr>
+</tbody></table></div>
+
+<h3>Target and bandwidth</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Case</th><th>Band</th><th>Bandwidth</th><th>Range resolution (c / 2B)</th><th>ADC / DAC rate to carry it (complex I/Q)</th></tr></thead>
+<tbody>
+<tr><td>A. ISM, reduced</td><td>24.0&ndash;24.25 GHz</td><td>250 MHz</td><td>0.60 m</td><td>&ge; 250 MS/s per I and Q</td></tr>
+<tr><td>B. Wideband</td><td>centred near 24.1&ndash;24.5 GHz, inside 21.65&ndash;26.65 GHz</td><td>500 MHz</td><td>0.30 m</td><td>&ge; 500 MS/s per I and Q</td></tr>
+<tr><td>C. Stretch</td><td>77&ndash;81 GHz</td><td>up to 4 GHz</td><td>~4 cm</td><td>depends on architecture</td></tr>
+</tbody></table></div>
+<blockquote><p><strong>Consequence for D1.</strong> The current ADC/DAC target of 200 MS/s digitises about 200 MHz of OFDM bandwidth, which is short of both cases: 250 MHz needs about 250 MS/s and 500 MHz needs about 500 MS/s (or 2.5&times; the planned interleaving). This holds for an OFDM waveform, where the converter must carry the full signal bandwidth. An FMCW (chirp) radar mixes the received signal against the transmitted chirp first, so its converter only sees a low beat frequency and 200 MS/s is plenty. The waveform choice therefore sets the converter rate, and the ADC/DAC rate should be fixed only after D1 names it.</p></blockquote>
+<ul>
+<li><strong>Carrier at 24 GHz needs the HBT or a multiplier.</strong> The CMOS LC oscillator ceiling (~10 GHz) is below 24 GHz. Either use an HBT oscillator at 24&ndash;26 GHz, or a CMOS oscillator near 12 GHz followed by a frequency doubler. The doubler option keeps the PLL in CMOS; both are untested here.</li>
+<li><strong>Bandwidth is regulatory as much as technical.</strong> 250 MHz is inside the ISM band; 500 MHz is not, so case B depends on the old wideband allocation or a test licence.</li>
+<li><strong>Plan A/B as one design:</strong> build for 250 MHz first and keep the waveform generator, DAC and ADC able to scale to 500 MHz.</li>
+</ul>
+
+<h2 id="radar">5. The radar project<a class="anchor" href="#radar"> #</a></h2>
 <h3>Where the blocks sit against the ceilings</h3>
 <div class="table-wrap"><table>
 <thead><tr><th>Block</th><th>Needs (from current plan)</th><th>Ceiling (conservative)</th><th>Headroom</th><th>Verdict</th></tr></thead>
@@ -122,7 +152,7 @@
 <tr><td>ADC</td><td>&ge; 200 MS/s, 8 bit, via 4 &times; 50 MS/s interleaving</td><td>50&ndash;100 MS/s per channel</td><td>Per-channel rate is comfortable; interleaving mismatch is the risk, not speed</td><td class="v-ok">fits</td></tr>
 <tr><td>DAC</td><td>&ge; 200 MS/s</td><td>200&ndash;500 MS/s</td><td>Little at the low end: output only usable to ~65 MHz at 200 MS/s</td><td class="v-warn">tight</td></tr>
 <tr><td>PLL (sample clock)</td><td>~200&ndash;800 MHz clock phases</td><td>Ring VCO ~1 GHz; LC VCO ~10 GHz</td><td>Large. All-CMOS works; HBTs not needed</td><td class="v-ok">fits</td></tr>
-<tr><td>PLL (carrier, if on chip)</td><td>Unknown: 24 / 60 / 77 GHz typical for radar</td><td>35 GHz conservative; ~100 GHz stretch</td><td>24 GHz fits; 60&ndash;77 GHz is a stretch design needing EM-simulated inductors</td><td class="v-crit">undecided</td></tr>
+<tr><td>PLL (carrier, if on chip)</td><td>24 GHz baseline; 77 GHz stretch (section 4)</td><td>35 GHz conservative; ~100 GHz stretch</td><td>24 GHz fits under the HBT ceiling; 77 GHz is a stretch design needing EM-simulated inductors</td><td class="v-crit">undecided</td></tr>
 <tr><td>Mixers, LNA, filters</td><td>Not in the current block list</td><td>Table 3</td><td>Only relevant if the chip includes an RF front end</td><td class="v-idle">out of scope</td></tr>
 </tbody></table></div>
 
@@ -137,7 +167,7 @@
 <li><strong>Anti-alias and reconstruction filters:</strong> the conservative choice is off-chip, or a gm-C filter at ~100 MHz. A fully on-chip active-RC filter at 100 MHz is beyond the ~20 MHz ceiling above.</li>
 </ul>
 
-<h2 id="verify">5. Verify before trusting<a class="anchor" href="#verify"> #</a></h2>
+<h2 id="verify">6. Verify before trusting<a class="anchor" href="#verify"> #</a></h2>
 <div class="table-wrap"><table>
 <thead><tr><th>Question</th><th>Measure</th><th>How</th></tr></thead>
 <tbody>
@@ -150,7 +180,7 @@
 <p>Environment note: these tests need the IHP PDK plus a current xschem and ngspice (or Xyce). The host xschem 2.8.1 and ngspice rev 31 are too old; the tutorial toolchain (container) is still the open item.</p>
 
 <hr>
-<p><small>Sources: IHP-AnalogAcademy README (SG13G2 highlights, device list); IHP Open PDK model and library files; <code>adc/docs/00-decisions.html</code> and <code>03-silicon.html</code> for the radar plan. Ceilings in section 3 are conservative estimates, to be replaced by the measurements in section 5.</small></p>
+<p><small>Sources: IHP-AnalogAcademy README (SG13G2 highlights, device list); IHP Open PDK model and library files; <code>adc/docs/00-decisions.html</code> and <code>03-silicon.html</code> for the radar plan. Ceilings in section 3 are conservative estimates, to be replaced by the measurements in section 6.</small></p>
 </main>
 </body>
 </html>
