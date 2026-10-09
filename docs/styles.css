@@ -1,0 +1,214 @@
+/* styles.css — rendering style for the ADC/DAC/PLL program documents.
+ * Pattern adapted from the Lunella chiplet architecture-spec style:
+ * light-only, deterministic, reviewed on screen and printable, tables and
+ * bullets as the primary content, a fixed sidebar carrying the chapter list
+ * and this page's own section outline. */
+
+:root {
+  --ink:        #16191d;
+  --ink-soft:   #4a5159;
+  --ink-faint:  #6b747d;
+  --rule:       #dfe3e8;
+  --rule-soft:  #eceff2;
+  --bg:         #ffffff;
+  --bg-soft:    #f7f8fa;
+  --accent:     #0b5cad;
+  --accent-bg:  #eaf2fb;
+  --flag:       #a3341c;
+  --flag-bg:    #fdf3f0;
+  --ok:         #1d6f42;
+  --warn:       #8a6a00;
+  --mono: ui-monospace, "SF Mono", "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace;
+  --text: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+  --gutter:    2.5rem;
+  --indent:    2.6rem;
+  --indent-h3: 1.3rem;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  max-width: 100rem;
+  padding: 3rem var(--gutter) 6rem calc(var(--gutter) + var(--indent));
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--text);
+  font-size: 15px;
+  line-height: 1.62;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ── document indentation ──────────────────────────────────────────────── */
+body > h1, body > h2 { margin-left: calc(-1 * var(--indent)); }
+body > h3 { margin-left: calc(-1 * var(--indent-h3)); }
+body > h4 { margin-left: calc(-0.5 * var(--indent-h3)); }
+li > ul, li > ol { margin-top: .25rem; margin-bottom: .35rem; }
+
+body > p, body > ul, body > ol, body > blockquote, body > figure,
+body > .table-wrap, body > pre,
+body > h1, body > h2, body > h3, body > h4 { max-width: none; }
+
+/* ── sidebar: program chapters + this page's own outline ─────────────── */
+#TOC {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 19rem;
+  padding: 1.6rem 1.1rem 3rem 1.6rem;
+  overflow-y: auto;
+  border-right: 1px solid var(--rule);
+  background: var(--bg-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+#TOC .label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 0 .5rem;
+}
+#TOC .chapters {
+  list-style: none; margin: 0 0 1.5rem; padding: 0;
+  padding-bottom: 1.3rem; border-bottom: 1px solid var(--rule);
+}
+#TOC .chapters li { margin: .1rem 0; }
+#TOC .chapters a {
+  display: block; padding: .22rem .5rem; border-radius: 3px;
+  color: var(--ink-soft); text-decoration: none;
+}
+#TOC .chapters a:hover { background: #e6eaef; color: var(--accent); }
+#TOC .chapters a.here { background: var(--accent-bg); color: var(--accent); font-weight: 650; }
+#TOC .chapters .n { font-family: var(--mono); color: var(--ink-faint); margin-right: .4rem; }
+
+#TOC ul.outline { list-style: none; margin: 0; padding: 0; }
+#TOC ul.outline ul { padding-left: .85rem; }
+#TOC ul.outline li { margin: .12rem 0; }
+#TOC ul.outline a {
+  display: block; padding: .15rem .35rem; border-radius: 3px;
+  color: var(--ink-soft); text-decoration: none;
+}
+#TOC ul.outline > li > a { color: var(--ink); font-weight: 600; margin-top: .45rem; }
+#TOC ul.outline a:hover { background: #e6eaef; color: var(--accent); }
+
+main { max-width: 68rem; margin: 0 0 0 19rem; padding: 3rem 3rem 6rem 3.5rem; }
+
+/* ── headings ──────────────────────────────────────────────────────────── */
+h1, h2, h3, h4 { line-height: 1.25; font-weight: 650; scroll-margin-top: 1.5rem; }
+h1 {
+  font-size: 1.85rem; margin: 0 0 .5rem; padding-bottom: .8rem;
+  border-bottom: 2px solid var(--ink); letter-spacing: -.01em;
+}
+.dek { font-size: 1.02rem; color: var(--ink-soft); margin: 0 0 1.4rem; max-width: 56rem; }
+h2 { font-size: 1.3rem; margin: 3.2rem 0 1rem; padding-bottom: .35rem; border-bottom: 1px solid var(--rule); }
+h3 { font-size: 1.03rem; margin: 2rem 0 .6rem; }
+h4 { font-size: .95rem; margin: 1.4rem 0 .5rem; color: var(--ink-soft); }
+h5 {
+  font-size: .78rem; font-weight: 650; letter-spacing: .06em; text-transform: uppercase;
+  margin: 1.9rem 0 .55rem; color: var(--ink-soft);
+}
+
+h2, h3 { position: relative; }
+h2 > a.anchor, h3 > a.anchor {
+  position: absolute; left: -1.35rem; color: var(--rule);
+  text-decoration: none; opacity: 0; font-weight: 400;
+}
+h2:hover > a.anchor, h3:hover > a.anchor { opacity: 1; }
+h2 > a.anchor:hover, h3 > a.anchor:hover { color: var(--accent); }
+
+p { margin: 0 0 .95rem; }
+a { color: var(--accent); }
+strong { font-weight: 680; }
+
+/* ── tables ────────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; margin: 0 0 1.25rem; }
+.table-wrap + .table-wrap { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--rule); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; line-height: 1.45; }
+th, td { border: 1px solid var(--rule); padding: .42rem .6rem; text-align: left; vertical-align: top; }
+thead th { background: var(--bg-soft); font-weight: 650; white-space: nowrap; }
+tbody tr:nth-child(even) { background: #fbfcfd; }
+td code, th code { white-space: nowrap; }
+
+/* ── code ──────────────────────────────────────────────────────────────── */
+code { font-family: var(--mono); font-size: .885em; background: var(--rule-soft); padding: .1em .32em; border-radius: 3px; }
+pre {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.35;
+  background: var(--bg-soft); border: 1px solid var(--rule); border-radius: 4px;
+  padding: 1rem 1.1rem; overflow-x: auto; margin: 0 0 1.3rem;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ── callouts ──────────────────────────────────────────────────────────── */
+blockquote {
+  margin: 1.3rem 0; padding: .7rem 1rem; border-left: 3px solid var(--accent);
+  background: var(--bg-soft); color: var(--ink-soft); font-size: 13.5px;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
+.contract {
+  background: var(--flag-bg); border-left: 3px solid var(--flag);
+  padding: .7rem 1rem; margin: 1.1rem 0;
+}
+.contract strong { color: var(--flag); }
+
+hr { border: 0; border-top: 1px solid var(--rule-soft); margin: 2.6rem 0; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.4rem; }
+li { margin: .2rem 0; }
+
+dl.meta { margin: 0 0 1.6rem; }
+dl.meta dt { font-weight: 600; color: var(--ink-soft); }
+dl.meta dd { margin: 0 0 .35rem 0; }
+
+/* ── status pills / verdicts ───────────────────────────────────────────── */
+.v-ok, .v-warn, .v-crit, .v-idle, .v-ref { font-weight: 600; white-space: nowrap; }
+.v-ok   { color: var(--ok); }
+.v-warn { color: var(--warn); }
+.v-crit { color: var(--flag); }
+.v-idle { color: var(--ink-faint); }
+.v-ref  { color: var(--accent); }
+
+ul.verdict-key { list-style: none; padding: 0; margin: 0 0 1rem; font-size: .9rem; }
+ul.verdict-key li { display: inline-block; margin: 0 1.1rem .3rem 0; }
+
+/* status rail: a compact dl of label/value pairs across the top of a chapter */
+dl.rail {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px; margin: 1.4rem 0 .5rem; background: var(--rule);
+  border: 1px solid var(--rule); border-radius: 4px; overflow: hidden;
+}
+dl.rail div { background: var(--bg); padding: .7rem .85rem; }
+dl.rail dt { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 .25rem; }
+dl.rail dd { margin: 0; font-weight: 650; font-size: .92rem; }
+
+/* ── diagrams ──────────────────────────────────────────────────────────── */
+figure.arch {
+  margin: 1.4rem 0; padding: 1rem; background: var(--bg-soft);
+  border: 1px solid var(--rule); border-radius: 4px; overflow-x: auto;
+}
+figure.arch svg { display: block; margin: 0; }
+figure.arch figcaption {
+  font-size: .88rem; color: var(--ink-soft); margin-top: .8rem;
+  padding-top: .6rem; border-top: 1px solid var(--rule);
+}
+
+/* ── print ─────────────────────────────────────────────────────────────── */
+@media print {
+  #TOC { display: none; }
+  main { margin: 0; max-width: none; padding: 0; }
+  body { font-size: 10.5pt; max-width: none; padding: 0 0 0 var(--indent); }
+  .table-wrap { overflow: visible; }
+  table { font-size: 8pt; }
+  pre, table, blockquote, figure.arch { page-break-inside: avoid; }
+  h2, h3 { page-break-after: avoid; }
+  a { color: var(--ink); text-decoration: none; }
+}
+
+@media (max-width: 60rem) {
+  #TOC { display: none; }
+  main { margin: 0; padding: 1.5rem 1.1rem 4rem; }
+  :root { --gutter: 1.1rem; --indent: 1rem; --indent-h3: .5rem; }
+  body { padding: 1.5rem var(--gutter) 4rem calc(var(--gutter) + var(--indent)); }
+}
