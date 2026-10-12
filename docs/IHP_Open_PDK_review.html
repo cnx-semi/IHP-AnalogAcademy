@@ -14,29 +14,31 @@
 <ul class="outline">
 <li><a href="#what">1. What the PDK gives</a></li>
 <li><a href="#ft">2. fT and fmax</a></li>
-<li><a href="#limits">3. Conservative frequency limits</a></li>
+<li><a href="#limits">3. Measured limits and ceilings</a></li>
 <li><a href="#bands">4. Frequency bands and our target</a></li>
 <li><a href="#radar">5. The radar project</a></li>
-<li><a href="#verify">6. Verify before trusting</a></li>
+<li><a href="#verify">6. How it was measured; open items</a></li>
 </ul>
 </nav>
 <main>
 <h1>IHP Open PDK review</h1>
-<p class="dek">SG13G2 for a mixed-signal radar chip: what the PDK contains, what fT and fmax mean, and a deliberately conservative frequency ceiling for every analog block.</p>
+<p class="dek">SG13G2 for a mixed-signal radar chip: what the PDK contains, what fT and fmax mean, the speed limits measured in the PDK models, and a conservative frequency ceiling for every analog block.</p>
 
 <dl class="rail">
 <div><dt>Process</dt><dd>130 nm SiGe BiCMOS</dd></div>
 <div><dt>PDK status</dt><dd class="v-warn">Preview &mdash; not production-qualified</dd></div>
 <div><dt>MOS supplies</dt><dd>1.2 V and 3.3 V only</dd></div>
-<div><dt>HBT fT / fmax</dt><dd>350 / 500 GHz (peak)</dd></div>
+<div><dt>HBT fT / fmax (measured)</dt><dd class="v-ok">415 / 358 GHz typ &middot; 287 / 242 worst</dd></div>
+<div><dt>CMOS fT (measured)</dt><dd class="v-ok">LV NMOS 27&ndash;33 GHz at gm/Id 10; HV 2&ndash;8 GHz</dd></div>
 <div><dt>Radar spec</dt><dd class="v-crit">Not yet defined (D1)</dd></div>
 <div><dt>Target</dt><dd class="v-warn">24 GHz, 250&ndash;500 MHz</dd></div>
 </dl>
 
 <ul class="verdict-key">
+<li><span class="v-ok">measured</span> simulated here with the PDK models (ngspice 46, pre-layout, typical corner unless noted)</li>
 <li><span class="v-ok">standard</span> textbook relation or IHP-documented</li>
 <li><span class="v-warn">estimate</span> design rule of thumb &mdash; verify</li>
-<li><span class="v-idle">unknown</span> not in the open docs &mdash; measure</li>
+<li><span class="v-idle">unknown</span> not measured</li>
 </ul>
 
 <h2 id="what">1. What the PDK gives<a class="anchor" href="#what"> #</a></h2>
@@ -44,7 +46,7 @@
 <thead><tr><th>Item</th><th>What is there</th><th>Consequence</th></tr></thead>
 <tbody>
 <tr><td>MOS transistors</td><td>Thin-oxide <code>sg13_lv_nmos/pmos</code> (1.2 V) and thick-oxide <code>sg13_hv_nmos/pmos</code> (3.3 V); isolated-NMOS variants</td><td>Two supply levels only. No 1.8 V or 2.5 V device: run a thick-oxide device at reduced voltage if needed</td></tr>
-<tr><td>Bipolar</td><td>SiGe:C NPN HBT, plus PNP and Schottky diode</td><td>The reason to pick this process over sky130. Speed and low flicker noise</td></tr>
+<tr><td>Bipolar</td><td>SiGe:C NPN HBT (<code>npn13G2</code>, <code>npn13G2l</code>, high-voltage <code>npn13G2v</code>), plus PNP and Schottky diode</td><td>The reason to pick this process over sky130. Measured peak fT 395&ndash;445 GHz and fmax 330&ndash;400 GHz in the model (section 3)</td></tr>
 <tr><td>Passives</td><td>Poly resistors (<code>rsil</code>, <code>rppd</code>, <code>rhigh</code>), MIM caps (<code>cap_cmim</code>, <code>cap_rfcmim</code>), MOM cap, MOS varactor, spiral inductors (xschem symbols in <code>sg13g2_pr</code>)</td><td>Real RF passives, unlike sky130's three fixed inductors</td></tr>
 <tr><td>Metal stack</td><td>5 thin Al + 2 thick Al + MIM</td><td>Thick top metal gives usable inductor Q</td></tr>
 <tr><td>Standard cells / I/O</td><td>1.2 V core cells (corners 1.08&ndash;1.65 V); 3.3 V I/O cells (corners 3.0&ndash;3.6 V)</td><td>Digital is 1.2 V; pads are 3.3 V</td></tr>
@@ -58,7 +60,7 @@
 <tbody>
 <tr><td>1.2 V (thin oxide)</td><td><code>sg13_lv_nmos/pmos</code>, 1.2 V standard cells</td><td>SAR logic, comparator, fast analog, PLL dividers and phase detector, interleaving control</td><td>Fastest MOS; core supply corners 1.08&ndash;1.65 V</td></tr>
 <tr><td>3.3 V (thick oxide)</td><td><code>sg13_hv_nmos/pmos</code>, 3.3 V I/O cells</td><td>Pads, bias generation, sampling switch and bootstrap, DAC current sources and output, anything needing signal swing</td><td>Slower than 1.2 V devices; I/O corners 3.0&ndash;3.6 V</td></tr>
-<tr><td>HBT supply</td><td><code>npn13G2</code> and variants (<code>npn13G2l</code>, <code>npn13G2v</code>)</td><td>Oscillator and first dividers if the carrier is on chip</td><td><span class="v-idle">unverified</span> The usable collector-emitter voltage is set by breakdown and is likely well below 3.3 V for the fastest variant. The variant names suggest different speed and breakdown trade-offs; read the model parameters before choosing a supply</td></tr>
+<tr><td>HBT supply</td><td><code>npn13G2</code> and variants (<code>npn13G2l</code>, <code>npn13G2v</code>)</td><td>Oscillator and first dividers if the carrier is on chip</td><td><span class="v-ok">model limits</span> V<sub>CE,max</sub> 1.6 V (<code>npn13G2</code>, <code>npn13G2l</code>), 2.2 V (<code>npn13G2v</code>, a slower high-voltage device: fT 104&ndash;122 GHz); V<sub>BE,max</sub> 1.6 V, V<sub>BC,max</sub> 5.1 V. fT gains only ~2 % from V<sub>CE</sub> = 1.0 to 1.5 V (415 to 425 GHz), so bias a single HBT at about 1 V. A stacked CML circuit runs from 2.5 V (or the 3.3 V domain) with every device below 1.6 V</td></tr>
 </tbody></table></div>
 <ul>
 <li><strong>Only two MOS levels.</strong> There is no 1.8 V or 2.5 V device. Other levels mean a thick-oxide device run at reduced voltage, or a regulator.</li>
@@ -75,9 +77,9 @@
 <tr><td colspan="4"><strong>Transistors</strong></td></tr>
 <tr><td><code>sg13_lv_nmos</code> / <code>pmos</code></td><td>1.2 V thin-oxide MOS</td><td>Comparator, SAR logic, DAC switches, dividers, phase detector, clock buffers</td><td class="v-ok">core</td></tr>
 <tr><td><code>sg13_hv_nmos</code> / <code>pmos</code></td><td>3.3 V thick-oxide MOS</td><td>Bootstrapped sampling switch, bias, DAC current sources, level shifters, pad drivers</td><td class="v-ok">core</td></tr>
-<tr><td><code>sg13_lv_rf_nmos</code> / <code>pmos</code></td><td>RF layout variants of the 1.2 V devices <span class="v-idle">check</span></td><td>CMOS LNA, mixer, doubler or first divider stages</td><td class="v-warn">carrier</td></tr>
+<tr><td><code>sg13_lv_rf_nmos</code> / <code>pmos</code></td><td>The 1.2 V device with the RF model (<code>rfmode=1</code>): gate resistance and RF parasitics included, so fT is lower (70&ndash;82 GHz peak against 89&ndash;106 GHz)</td><td>CMOS LNA, mixer, doubler or first divider stages; use it for anything above 1 GHz</td><td class="v-warn">carrier</td></tr>
 <tr><td><code>sg13_hv_rf_nmos</code> / <code>pmos</code></td><td>RF layout variants of the 3.3 V devices <span class="v-idle">check</span></td><td>Higher-swing RF drivers; rarely needed</td><td class="v-idle">minor</td></tr>
-<tr><td><code>npn13G2</code>, <code>npn13G2l</code>, <code>npn13G2v</code> (+ <code>_5t</code> versions)</td><td>SiGe HBTs; the variants trade speed against breakdown voltage <span class="v-idle">check</span>; <code>_5t</code> adds a separate substrate terminal <span class="v-idle">check</span></td><td>24 GHz oscillator, first dividers, LNA, buffers</td><td class="v-warn">carrier</td></tr>
+<tr><td><code>npn13G2</code>, <code>npn13G2l</code>, <code>npn13G2v</code> (+ <code>_5t</code> versions)</td><td>SiGe HBTs: <code>npn13G2</code> fT 415 GHz, <code>npn13G2l</code> 406 GHz at 2.7&times; the current, <code>npn13G2v</code> only 104&ndash;122 GHz but V<sub>CE,max</sub> 2.2 V; the <code>_5t</code> versions expose the self-heating (thermal) node</td><td>24 GHz oscillator, first dividers, LNA, buffers</td><td class="v-warn">carrier</td></tr>
 <tr><td><code>pnpMPA</code></td><td>PNP bipolar</td><td>Bandgap reference and temperature sensing for bias and calibration</td><td class="v-idle">minor</td></tr>
 <tr><td><code>schottky_nbl1</code></td><td>Schottky diode</td><td>RF detector or passive mixer; unlikely</td><td class="v-idle">minor</td></tr>
 <tr><td colspan="4"><strong>Passives</strong></td></tr>
@@ -101,9 +103,9 @@
 <tr><td>I/O cell library (<code>sg13g2_io</code>)</td><td>3.3 V pad cells with a 1.2 V core side</td><td>Digital pads; analog pads usually bypass these</td><td class="v-ok">core</td></tr>
 <tr><td>SRAM macros (<code>RM_IHPSG13_1P_*</code>)</td><td>Single-port memory from 256&times;8 up to 2048&times;64 bits</td><td>Capture buffer for converter data; part of the Croc SoC</td><td class="v-ok">core</td></tr>
 </tbody></table></div>
-<blockquote><p><strong>What is missing.</strong> The PDK has no ready ADC, DAC, PLL, oscillator or reference cells; those come from the course or from our own design. It also has no dedicated high-speed comparator, bootstrapped switch or current-steering cell, so the AnalogAcademy Module 3 versions are the starting point. The RF and HBT cells are the ones to measure first (section 6) if the carrier ends up on chip.</p></blockquote>
+<blockquote><p><strong>What is missing.</strong> The PDK has no ready ADC, DAC, PLL, oscillator or reference cells; those come from the course or from our own design. It also has no dedicated high-speed comparator, bootstrapped switch or current-steering cell, so the AnalogAcademy Module 3 versions are the starting point. The RF and HBT devices are characterised in section 3a; the open items are in section 6.</p></blockquote>
 
-<blockquote><p><strong>Number to reconcile.</strong> The course README (and this page) quote HBT fT 350 GHz and fmax 500 GHz. <code>adc/docs/03-silicon.html</code> says fT 300 GHz. IHP has quoted slightly different pairs across process revisions, so treat both as ballpark and measure on the actual model (section 6). The 720 GHz fmax record on IHP's site is a different, experimental technology, not SG13G2.</p></blockquote>
+<blockquote><p><strong>Numbers reconciled by measurement.</strong> The course README quotes HBT fT 350 GHz and fmax 500 GHz; <code>adc/docs/03-silicon.html</code> says fT 300 GHz. In the PDK's own model (typical corner, 27 &deg;C, pre-layout) <code>npn13G2</code> reaches <strong>fT 415 GHz and fmax 358 GHz</strong> at its best bias (about 2.5 mA per emitter, V<sub>CE</sub> = 1.0 V); at the worst corner and 125 &deg;C it is <strong>287 / 242 GHz</strong>. So 300&ndash;350 GHz is a fair design number for fT; the 500 GHz fmax headline is not reproduced by the model, use 240&ndash;360 GHz. The 720 GHz fmax on IHP's site is a different, experimental technology.</p></blockquote>
 
 <h2 id="ft">2. fT and fmax<a class="anchor" href="#ft"> #</a></h2>
 <div class="table-wrap"><table>
@@ -114,70 +116,97 @@
 <tr><td>Approximation</td><td><code>fT &asymp; gm / 2&pi;(C<sub>be</sub> + C<sub>bc</sub>)</code></td><td><code>fmax &asymp; &radic;(fT / 8&pi;R<sub>b</sub>C<sub>bc</sub>)</code></td></tr>
 <tr><td>Gain roll-off</td><td>&minus;20 dB/decade above the corner</td><td>&minus;20 dB/decade</td></tr>
 <tr><td>Effect on noise</td><td colspan="2">Minimum noise figure rises as f/fT rises: a higher-fT device is quieter at the same frequency</td></tr>
-<tr><td>Bias dependence</td><td colspan="2">Peak only at an optimum collector current density; lower at low current and again at very high current (Kirk effect). Layout wiring lowers it further</td></tr>
+<tr><td>Bias dependence</td><td colspan="2">Peak only at an optimum collector current density: measured about 2&ndash;2.8 mA per emitter for <code>npn13G2</code>, lower at low current and again at very high current (Kirk effect). It scales with the number of emitters (peak at about 10 mA for 4 emitters). Layout wiring lowers it further</td></tr>
 </tbody></table></div>
 
 <figure class="arch">
-<svg viewBox="0 0 660 262" width="660" role="img" aria-label="Log frequency ladder from 10 MHz to 1 THz showing project signals and conservative device ceilings">
+<svg viewBox="0 0 660 262" width="660" role="img" aria-label="Log frequency ladder from 10 MHz to 1 THz: project signals, measured circuit limits and conservative ceilings">
 <g font-family="sans-serif" font-size="11" fill="#16191d">
 <line x1="60" y1="215" x2="620" y2="215" stroke="#6b747d"/>
 <g stroke="#6b747d"><line x1="60" y1="215" x2="60" y2="220"/><line x1="172" y1="215" x2="172" y2="220"/><line x1="284" y1="215" x2="284" y2="220"/><line x1="396" y1="215" x2="396" y2="220"/><line x1="508" y1="215" x2="508" y2="220"/><line x1="620" y1="215" x2="620" y2="220"/></g>
 <text x="40" y="234">10 MHz</text><text x="150" y="234">100 MHz</text><text x="266" y="234">1 GHz</text><text x="374" y="234">10 GHz</text><text x="484" y="234">100 GHz</text><text x="602" y="234">1 THz</text>
 <rect x="138" y="22" width="135" height="20" fill="#0b5cad" opacity=".85"/><text x="280" y="36">Project clocks and data: 50&ndash;800 MHz</text>
-<rect x="60" y="52" width="224" height="20" fill="#1d6f42" opacity=".75"/><text x="290" y="66">Synthesised 1.2 V CMOS logic: up to ~1 GHz</text>
-<rect x="60" y="82" width="336" height="20" fill="#1d6f42" opacity=".5"/><text x="402" y="96">CMOS analog / RF: up to ~10 GHz</text>
-<rect x="60" y="112" width="397" height="20" fill="#8a6a00" opacity=".6"/><text x="463" y="126">HBT, conservative: up to 35 GHz</text>
-<rect x="457" y="142" width="51" height="20" fill="#8a6a00" opacity=".3"/><text x="514" y="156">HBT stretch (needs EM + sim): ~100 GHz</text>
-<line x1="569" y1="20" x2="569" y2="215" stroke="#a3341c" stroke-dasharray="4 3"/><text x="540" y="186" fill="#a3341c">fT 350</text>
-<line x1="586" y1="20" x2="586" y2="215" stroke="#a3341c" stroke-dasharray="4 3"/><text x="572" y="200" fill="#a3341c">fmax 500</text>
+<rect x="60" y="48" width="277" height="18" fill="#1d6f42" opacity=".75"/><text x="344" y="61">CMOS std-cell flip-flop divider: 1.5 (worst) &ndash; 3 GHz (measured)</text>
+<rect x="60" y="72" width="325" height="18" fill="#1d6f42" opacity=".5"/><text x="392" y="85">CMOS TSPC divider: 5 &ndash; 8 GHz (measured)</text>
+<rect x="60" y="96" width="397" height="18" fill="#8a6a00" opacity=".6"/><text x="463" y="109">HBT amplifier / VCO conservative: 35 GHz</text>
+<rect x="497" y="120" width="27" height="18" fill="#6a3d9a" opacity=".6"/><text x="490" y="133" text-anchor="end">HBT CML divider: 80 (worst) &ndash; 140 GHz (typ), measured</text>
+<rect x="457" y="144" width="38" height="18" fill="#8a6a00" opacity=".3"/><text x="450" y="157" text-anchor="end">HBT stretch to 77 GHz: device gain 11&ndash;15 dB (measured)</text>
+<line x1="570" y1="20" x2="570" y2="215" stroke="#a3341c" stroke-dasharray="4 3"/><text x="565" y="190" text-anchor="end" fill="#a3341c">fmax 358 typ</text>
+<line x1="577" y1="20" x2="577" y2="215" stroke="#a3341c" stroke-dasharray="4 3"/><text x="565" y="204" text-anchor="end" fill="#a3341c">fT 415 typ (287 / 242 worst)</text>
 </g></svg>
-<figcaption>Log frequency axis. The project's sample and data rates sit 2&ndash;3 decades below the HBT's conservative ceiling; only a carrier-frequency block would approach it. Bars are estimates, not measurements.</figcaption>
+<figcaption>Log frequency axis. The project's sample and data rates sit 2&ndash;3 decades below the HBT's conservative ceiling; only a carrier-frequency block would approach it. Green and purple bars and the dashed lines are measured in the PDK models (pre-layout); the brown bars are the conservative design ceilings of section 3.</figcaption>
 </figure>
 
-<h2 id="limits">3. Conservative frequency limits<a class="anchor" href="#limits"> #</a></h2>
-<p>Method: the ceiling is where a first-pass design by a team new to this PDK should still work with margin. For HBT gain stages that is <strong>about fT/10 &asymp; 35 GHz</strong>; for CMOS it is a fraction of the device speed set by switch and load parasitics. The stretch column is what careful EM-aided design might reach. None of these were measured here.</p>
+<h2 id="limits">3. Measured limits and conservative ceilings<a class="anchor" href="#limits"> #</a></h2>
+<h3>3a. What the PDK models give (measured here)</h3>
+<p>Every number comes from simulating the PDK's own models with ngspice 46 (Verilog-A PSP103 and VBIC models through OSDI), typical corner and 27 &deg;C unless a worst case is listed. <strong>Pre-layout</strong>: model parasitics only, no wiring, pads or package. fT is where |h21| = 1, fmax where Mason's unilateral gain U = 1, both from two-port Y parameters. &ldquo;Worst&rdquo; is the slow corner, 125 &deg;C (HBT: <code>hbt_wcs</code>; CMOS: <code>mos_ss</code> and 1.08 V).</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Device or circuit</th><th>Typical</th><th>Worst case</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td colspan="4"><strong>HBT</strong> (V<sub>CE</sub> = 1.0 V)</td></tr>
+<tr><td><code>npn13G2</code>, 1 emitter, best bias (about 2.5 mA)</td><td>fT 415, fmax 358 GHz</td><td>287 / 242 GHz</td><td>1 &rarr; 4 &rarr; 8 emitters: fT 415 &rarr; 428 &rarr; 435 GHz at 2.5 &rarr; 10 &rarr; 16 mA</td></tr>
+<tr><td><code>npn13G2l</code></td><td>406 / 357 GHz at 6.8 mA</td><td>&mdash;</td><td>Peaks at 2.7&times; the current of <code>npn13G2</code>, presumably a longer emitter</td></tr>
+<tr><td><code>npn13G2v</code> (V<sub>CE,max</sub> 2.2 V)</td><td>104&ndash;122 / 169&ndash;198 GHz</td><td>&mdash;</td><td>High-voltage HBT: much slower, not for RF</td></tr>
+<tr><td>Device gain U of <code>npn13G2</code> at 24 / 35 / 60 / 77 / 94 GHz</td><td>25.4 / 22.1 / 17.4 / 15.2 / 13.4 dB</td><td>21.7 / 18.4 / 13.6 / 11.4 / 9.6 dB</td><td>One transistor, no matching or wiring loss; a real stage gives several dB less</td></tr>
+<tr><td>Static CML divide-by-2, 4 mA per latch, 2.5 V, 1 V<sub>pp</sub> differential sine clock</td><td>140 GHz</td><td>80 GHz</td><td>Output swing still 0.27 V at 140 GHz; does not divide with a 0.2 V<sub>pp</sub> clock, works with 0.4 V<sub>pp</sub></td></tr>
+<tr><td colspan="4"><strong>MOS</strong> (W = 10 &micro;m, 10 fingers, minimum length)</td></tr>
+<tr><td><code>sg13_lv_nmos</code>, peak fT / at g<sub>m</sub>/I<sub>d</sub> = 10</td><td>89&ndash;106 / 27&ndash;33 GHz</td><td>&mdash;</td><td>RF model (<code>rfmode=1</code>): 70&ndash;82 / 21&ndash;25 GHz</td></tr>
+<tr><td><code>sg13_lv_pmos</code></td><td>45&ndash;63 / 17 GHz</td><td>&mdash;</td><td>About half of the NMOS</td></tr>
+<tr><td><code>sg13_hv_nmos</code> (L = 0.45 &micro;m)</td><td>20&ndash;22 / 6&ndash;8 GHz</td><td>&mdash;</td><td>3.3 V device: not for the fast path</td></tr>
+<tr><td><code>sg13_hv_pmos</code> (L = 0.40 &micro;m)</td><td>11&ndash;15 / about 2 GHz</td><td>&mdash;</td><td>Slowest device in the PDK</td></tr>
+<tr><td colspan="4"><strong>CMOS logic</strong> (standard-cell transistor netlists, no wiring)</td></tr>
+<tr><td>FO4 inverter delay (<code>sg13g2_inv_1</code>)</td><td>78 ps</td><td>121 ps</td><td>Best case (fast, &minus;40 &deg;C, 1.32 V): 52 ps</td></tr>
+<tr><td>Flip-flop divide-by-2 (<code>sg13g2_dfrbp_1</code>)</td><td>3 GHz</td><td>1.5 GHz</td><td>Highest clock that still divides</td></tr>
+<tr><td>TSPC divide-by-2 (9 transistors, minimum length, unsized)</td><td>8 GHz</td><td>5 GHz</td><td>An optimised, laid-out divider will differ</td></tr>
+<tr><td colspan="4"><strong>Passives</strong></td></tr>
+<tr><td>2 nH octagon inductor (openEMS vs IHP measurement)</td><td>Q 20 at 10 GHz; self-resonance 22 GHz</td><td>&mdash;</td><td>Measured by IHP: Q 23.5 at 9 GHz, resonance 25.5 GHz. Above resonance it is a capacitor: 24 GHz needs inductors of 0.4 nH or less</td></tr>
+<tr><td>MOS varactor (<code>sg13_hv_svaricap</code>, 3.74 &times; 0.3 &micro;m unit)</td><td>C 5.6&ndash;12 fF (&times;2.2); Q at 24 GHz 8 (max C) to 17 (min C)</td><td>&mdash;</td><td>Larger cells lose Q (a 4-finger cell: Q 1&ndash;2.5 at 24 GHz); use many unit cells in parallel</td></tr>
+</tbody></table></div>
+
+<h3>3b. Conservative ceilings for design</h3>
+<p>Method: the ceiling is where a first-pass design by a team new to this PDK should still work with margin: the measured worst-case value of 3a, reduced by about 40 % for layout wiring and pads where only pre-layout data exist. For HBT gain stages that is <strong>35 GHz</strong>, where the transistor still has 18 dB of gain at the worst corner (U = 18 dB, 22 dB typical; 15 / 19 dB at 50 GHz). The stretch column is what careful EM-aided design might reach. <span class="v-ok">measured</span> rows rest on 3a; <span class="v-warn">estimate</span> rows are rules of thumb.</p>
 
 <div class="table-wrap"><table>
 <thead><tr><th>Component</th><th>Device</th><th>Conservative ceiling</th><th>Stretch</th><th>What limits it</th><th>Basis</th></tr></thead>
 <tbody>
 <tr><td colspan="6"><strong>Amplifier, mixer, filter</strong></td></tr>
-<tr><td>RF amplifier (LNA, driver)</td><td>HBT</td><td>35 GHz</td><td>~100 GHz</td><td>Gain ~ fT/f; noise figure; layout parasitics</td><td class="v-warn">estimate</td></tr>
-<tr><td>RF amplifier</td><td>1.2 V CMOS</td><td>~5&ndash;10 GHz</td><td>~20 GHz</td><td>Gate and wiring capacitance; LV CMOS fT is not in the open docs</td><td class="v-idle">unknown fT</td></tr>
-<tr><td>Power amplifier</td><td>HBT</td><td>~fmax/10 &asymp; 50 GHz</td><td>~fmax/4</td><td>Power gain, breakdown voltage, thermal</td><td class="v-warn">estimate</td></tr>
-<tr><td>Gilbert mixer (RF and LO)</td><td>HBT</td><td>20&ndash;35 GHz</td><td>~77 GHz</td><td>LO must fully switch the quad; stacked devices each add a pole</td><td class="v-warn">estimate</td></tr>
-<tr><td>Passive mixer</td><td>1.2 V CMOS switches</td><td>~3&ndash;5 GHz</td><td>~10 GHz</td><td>R<sub>on</sub>&middot;C parasitic, LO drive swing</td><td class="v-warn">estimate</td></tr>
+<tr><td>RF amplifier (LNA, driver)</td><td>HBT</td><td>35 GHz</td><td>77 GHz</td><td>Device gain: U = 18 dB (worst) / 22 dB (typ) at 35 GHz, 11&ndash;15 dB at 77 GHz before matching and wiring loss; noise figure not measured</td><td class="v-ok">measured</td></tr>
+<tr><td>RF amplifier</td><td>1.2 V CMOS</td><td>~3 GHz (fT/10 at g<sub>m</sub>/I<sub>d</sub> = 10)</td><td>~8 GHz (peak-fT current, power hungry)</td><td>Gate and wiring capacitance: LV NMOS fT 27&ndash;33 GHz at moderate inversion, PMOS 17 GHz</td><td class="v-ok">measured</td></tr>
+<tr><td>Power amplifier</td><td>HBT</td><td>~25 GHz (fmax/10, worst case)</td><td>~60 GHz (fmax/4)</td><td>Power gain, breakdown voltage (V<sub>CE,max</sub> 1.6 V), thermal; output power not measured</td><td class="v-warn">estimate from measured fmax</td></tr>
+<tr><td>Gilbert mixer (RF and LO)</td><td>HBT</td><td>20&ndash;30 GHz</td><td>~77 GHz</td><td>LO must fully switch the quad; stacked devices each add a pole</td><td class="v-warn">estimate</td></tr>
+<tr><td>Passive mixer</td><td>1.2 V CMOS switches</td><td>~3 GHz</td><td>~8 GHz</td><td>R<sub>on</sub>&middot;C parasitic, LO drive swing; switch fT as in the CMOS amplifier row</td><td class="v-warn">estimate</td></tr>
 <tr><td>Active-RC filter (corner)</td><td>CMOS op-amp</td><td>~20 MHz</td><td>~50 MHz</td><td>Op-amp bandwidth must be 20&ndash;100&times; the corner or Q peaks</td><td class="v-warn">estimate</td></tr>
 <tr><td>gm-C filter (corner)</td><td>CMOS or HBT</td><td>~100 MHz (CMOS)</td><td>several 100 MHz (HBT)</td><td>gm accuracy and tuning; parasitic poles</td><td class="v-warn">estimate</td></tr>
-<tr><td>Passive LC filter / matching</td><td>Inductor + MIM</td><td>~2&ndash;60 GHz</td><td>higher with EM</td><td>Inductor Q and self-resonance; nH-scale inductors are too large below ~1 GHz</td><td class="v-warn">estimate</td></tr>
+<tr><td>Passive LC filter / matching</td><td>Inductor + MIM</td><td>2&ndash;60 GHz, inductor below a third of its self-resonance</td><td>higher with EM</td><td>Inductor Q (about 20) and self-resonance (2 nH: 22 GHz, so 0.4 nH or less at 24 GHz); nH-scale inductors are too large below ~1 GHz</td><td class="v-ok">measured</td></tr>
 <tr><td colspan="6"><strong>PLL</strong></td></tr>
 <tr><td>Reference and PFD</td><td>CMOS</td><td>100&ndash;200 MHz</td><td>~500 MHz</td><td>Delay mismatch, dead zone, charge-pump matching, spurs</td><td class="v-warn">estimate</td></tr>
-<tr><td>Ring VCO</td><td>CMOS</td><td>~1 GHz</td><td>~3 GHz</td><td>Delay per stage; poor phase noise and supply sensitivity</td><td class="v-warn">estimate</td></tr>
-<tr><td>LC VCO</td><td>CMOS</td><td>~10 GHz</td><td>~20 GHz</td><td>Inductor Q, varactor range, flicker noise</td><td class="v-warn">estimate</td></tr>
-<tr><td>LC VCO</td><td>HBT</td><td>35 GHz</td><td>60&ndash;100+ GHz</td><td>fT, fmax, varactor tuning range; HBT gives lower flicker noise</td><td class="v-warn">estimate</td></tr>
-<tr><td>Divider, first stage</td><td>CMOS (TSPC or CML)</td><td>3&ndash;5 GHz (TSPC), ~10 GHz (CML)</td><td>~15 GHz</td><td>Latch speed, input swing</td><td class="v-warn">estimate</td></tr>
-<tr><td>Divider, first stage</td><td>HBT (CML)</td><td>35 GHz</td><td>70+ GHz</td><td>Fraction of fT</td><td class="v-warn">estimate</td></tr>
+<tr><td>Ring VCO</td><td>CMOS</td><td>~1 GHz</td><td>~3 GHz</td><td>Delay per stage (FO4 78 ps typ, 121 ps worst); poor phase noise and supply sensitivity</td><td class="v-warn">estimate from measured FO4</td></tr>
+<tr><td>LC VCO</td><td>CMOS</td><td>~10 GHz</td><td>~20 GHz</td><td>Inductor Q (about 20), varactor Q, flicker noise; not simulated</td><td class="v-warn">estimate</td></tr>
+<tr><td>LC VCO</td><td>HBT</td><td>35 GHz</td><td>60&ndash;100+ GHz</td><td>Transistor is not the limit (fT, fmax measured); the tank is: varactor Q 8&ndash;17 at 24 GHz, inductor Q about 20, small inductors; phase noise not simulated</td><td class="v-warn">estimate</td></tr>
+<tr><td>Divider, first stage</td><td>CMOS (TSPC)</td><td>3 GHz</td><td>~6 GHz</td><td>Latch speed, input swing. Measured 5 (worst) &ndash; 8 GHz (typ) pre-layout; flip-flop cells 1.5&ndash;3 GHz</td><td class="v-ok">measured</td></tr>
+<tr><td>Divider, first stage</td><td>HBT (CML)</td><td>50 GHz</td><td>70&ndash;100 GHz</td><td>Measured 80 GHz worst, 140 GHz typ pre-layout with a 1 V<sub>pp</sub> differential clock; ceiling is the worst case less 40 %; needs a clock of 0.4 V<sub>pp</sub> or more</td><td class="v-ok">measured</td></tr>
 <tr><td colspan="6"><strong>ADC and DAC</strong></td></tr>
 <tr><td>8-bit SAR channel (sample rate)</td><td>CMOS</td><td>50&ndash;100 MS/s</td><td>200 MS/s single channel</td><td>Comparator regeneration, DAC settling and logic delay per bit; ~5 ns total at 200 MS/s</td><td class="v-warn">estimate</td></tr>
 <tr><td>Time-interleaved SAR</td><td>CMOS</td><td>4 &times; 50 MS/s = 200 MS/s</td><td>8 &times; and up</td><td>Offset, gain and timing-skew mismatch between channels</td><td class="v-warn">estimate</td></tr>
 <tr><td>Sampling switch (input bandwidth)</td><td>Thick-oxide bootstrapped</td><td>fin &le; fs/4</td><td>fs/2</td><td>R<sub>on</sub>&middot;C<sub>s</sub> settling to N bits in the track phase</td><td class="v-warn">estimate</td></tr>
-<tr><td>Current-steering DAC (update rate)</td><td>CMOS</td><td>200&ndash;500 MS/s</td><td>~1 GS/s</td><td>Switch skew, glitch energy, output capacitance</td><td class="v-warn">estimate</td></tr>
+<tr><td>Current-steering DAC (update rate)</td><td>CMOS</td><td>200&ndash;500 MS/s</td><td>~1 GS/s</td><td>Switch skew, glitch energy, output capacitance. Keep 3.3 V PMOS (fT about 2 GHz) out of the switch path; use 1.2 V devices there</td><td class="v-warn">estimate</td></tr>
 <tr><td>DAC usable output frequency</td><td>CMOS</td><td>&le; fs/3</td><td>fs/2.5</td><td>sinc roll-off plus output impedance falling with frequency</td><td class="v-ok">standard</td></tr>
 <tr><td>Clock jitter (rms)</td><td>Whole clock path</td><td>&le; 1.6 ps at 100 MHz input; &le; 3.2 ps at 50 MHz</td><td>&le; 5 ps at 100 MHz (costs about 0.5 bit)</td><td><code>SNR = &minus;20&middot;log<sub>10</sub>(2&pi;&middot;f<sub>in</sub>&middot;&sigma;<sub>j</sub>)</code>; jitter SNR held &ge; 60 dB so it does not add to the 50 dB limit of 8 bits</td><td class="v-ok">standard</td></tr>
 </tbody></table></div>
 
-<blockquote><p><strong>How to read this.</strong> Anything marked <span class="v-warn">estimate</span> is a design rule of thumb, not a datasheet value. The CMOS rows have no fT because the open docs do not publish one for the LV or HV MOS devices: measure it (section 6) before relying on them. The 3.3 V thick-oxide devices are slower than the 1.2 V ones; use them where swing matters (sampling switch, bias, I/O), not in the fast path.</p></blockquote>
+<blockquote><p><strong>How to read this.</strong> <span class="v-ok">measured</span> rows come from simulating the PDK models (3a); the ceiling already includes a margin. <span class="v-warn">estimate</span> rows are rules of thumb that no simulation here confirms (noise figure, VCO phase noise, mixers, filters, converters). All numbers are pre-layout and for the typical or stated corner; none include pads, bond wires or package. The 3.3 V thick-oxide devices are slower than the 1.2 V ones (fT 2&ndash;8 GHz at moderate inversion); use them where swing matters (sampling switch, bias, I/O), not in the fast path.</p></blockquote>
 
 <h2 id="bands">4. Frequency bands and our target<a class="anchor" href="#bands"> #</a></h2>
 <p>Band allocations below are from memory of the ITU / 3GPP / regional rules, not checked against the regulator. Confirm with the Thai regulator (NBTC) and the target market before relying on any row.</p>
 <div class="table-wrap"><table>
 <thead><tr><th>Band</th><th>Use</th><th>Fits our project?</th><th>IHP SG13G2 reading (from section 3)</th></tr></thead>
 <tbody>
-<tr><td>24.0&ndash;24.25 GHz</td><td>ISM; short-range radar (motion, speed, level, robot sensing)</td><td><span class="v-ok">baseline</span> &mdash; 250 MHz</td><td>Inside the 35 GHz HBT ceiling: fT/f &asymp; 15, fmax/f &asymp; 21. Comfortable</td></tr>
+<tr><td>24.0&ndash;24.25 GHz</td><td>ISM; short-range radar (motion, speed, level, robot sensing)</td><td><span class="v-ok">baseline</span> &mdash; 250 MHz</td><td>Inside the 35 GHz HBT ceiling. Measured device gain U = 22 dB (worst) to 25 dB (typ) at 24 GHz. Comfortable</td></tr>
 <tr><td>21.65&ndash;26.65 GHz</td><td>Old automotive wideband short-range radar (5 GHz wide)</td><td><span class="v-warn">needed for 500 MHz</span></td><td>Same as above; the whole span stays under the ceiling. Regulatory status is the risk: the EU phased it out for cars</td></tr>
 <tr><td>24.25&ndash;27.5 GHz</td><td>5G NR FR2 (n258), 6G mid-band candidate</td><td><span class="v-crit">interferer</span></td><td>Upper part of the wideband span overlaps it: needs filtering, and a licence or test permit</td></tr>
 <tr><td>7.125&ndash;24.25 GHz</td><td>3GPP FR3 &ldquo;upper mid-band&rdquo;, main 6G candidate</td><td><span class="v-idle">reference</span></td><td>24 GHz is its top edge. CMOS-only LC VCO (~10 GHz) covers its lower half</td></tr>
 <tr><td>23.6&ndash;24.0 GHz</td><td>Passive weather-satellite sensing, protected</td><td><span class="v-warn">avoid</span></td><td>Keep out-of-band emission low just below 24.0 GHz</td></tr>
-<tr><td>76&ndash;81 GHz</td><td>Automotive radar</td><td><span class="v-warn">stretch</span></td><td>2&times; over the conservative ceiling; separate test structure and non-QFN package (section 5)</td></tr>
+<tr><td>76&ndash;81 GHz</td><td>Automotive radar</td><td><span class="v-warn">stretch</span></td><td>2&times; over the conservative ceiling. Measured device gain at 77 GHz: U = 15 dB typ, 11 dB worst (pre-layout), so amplifier stages work but with little margin; separate test structure and non-QFN package (section 5)</td></tr>
 </tbody></table></div>
 
 <h3>Target and bandwidth</h3>
@@ -190,7 +219,7 @@
 </tbody></table></div>
 <blockquote><p><strong>Consequence for D1.</strong> The current ADC/DAC target of 200 MS/s digitises about 200 MHz of OFDM bandwidth, which is short of both cases: 250 MHz needs about 250 MS/s and 500 MHz needs about 500 MS/s (or 2.5&times; the planned interleaving). This holds for an OFDM waveform, where the converter must carry the full signal bandwidth. An FMCW (chirp) radar mixes the received signal against the transmitted chirp first, so its converter only sees a low beat frequency and 200 MS/s is plenty. The waveform choice therefore sets the converter rate, and the ADC/DAC rate should be fixed only after D1 names it.</p></blockquote>
 <ul>
-<li><strong>Carrier at 24 GHz needs the HBT or a multiplier.</strong> The CMOS LC oscillator ceiling (~10 GHz) is below 24 GHz. Either use an HBT oscillator at 24&ndash;26 GHz, or a CMOS oscillator near 12 GHz followed by a frequency doubler. The doubler option keeps the PLL in CMOS; both are untested here.</li>
+<li><strong>Carrier at 24 GHz needs the HBT or a multiplier.</strong> The CMOS transistors are too slow for a 24 GHz oscillator or divider (LV NMOS fT 27&ndash;33 GHz at moderate inversion, TSPC divider 5&ndash;8 GHz). Either use an HBT oscillator at 24&ndash;26 GHz, or a CMOS oscillator near 12 GHz followed by a frequency doubler. The doubler option keeps the PLL in CMOS; neither oscillator was simulated here.</li>
 <li><strong>Bandwidth is regulatory as much as technical.</strong> 250 MHz is inside the ISM band; 500 MHz is not, so case B depends on the old wideband allocation or a test licence.</li>
 <li><strong>Plan A/B as one design:</strong> build for 250 MHz first and keep the waveform generator, DAC and ADC able to scale to 500 MHz.</li>
 </ul>
@@ -203,8 +232,8 @@
 <tr><td>ADC</td><td>&ge; 200 MS/s, 8 bit, via 4 &times; 50 MS/s interleaving</td><td>50&ndash;100 MS/s per channel</td><td>Per-channel rate is comfortable; interleaving mismatch is the risk, not speed</td><td class="v-ok">fits</td></tr>
 <tr><td>DAC</td><td>&ge; 200 MS/s</td><td>200&ndash;500 MS/s</td><td>Little at the low end: output only usable to ~65 MHz at 200 MS/s</td><td class="v-warn">tight</td></tr>
 <tr><td>PLL (sample clock)</td><td>~200&ndash;800 MHz clock phases</td><td>Ring VCO ~1 GHz; LC VCO ~10 GHz</td><td>Large. All-CMOS works; HBTs not needed</td><td class="v-ok">fits</td></tr>
-<tr><td>PLL (carrier, if on chip)</td><td>24 GHz baseline; 77 GHz stretch (section 4)</td><td>35 GHz conservative; ~100 GHz stretch</td><td>24 GHz fits under the HBT ceiling; 77 GHz is a stretch design needing EM-simulated inductors</td><td class="v-crit">undecided</td></tr>
-<tr><td>Mixers, LNA, filters</td><td>Not in the current block list</td><td>Table 3</td><td>Only relevant if the chip includes an RF front end</td><td class="v-idle">out of scope</td></tr>
+<tr><td>PLL (carrier, if on chip)</td><td>24 GHz baseline; 77 GHz stretch (section 4)</td><td>35 GHz conservative; 77 GHz stretch</td><td>24 GHz fits: HBT device gain 22&ndash;25 dB and CML divider ceiling 50 GHz. 77 GHz: device gain 11&ndash;15 dB, divider fine (80&ndash;140 GHz pre-layout), the oscillator tank and EM-simulated inductors are the open question</td><td class="v-crit">undecided</td></tr>
+<tr><td>Mixers, LNA, filters</td><td>Not in the current block list</td><td>Table 3b</td><td>Only relevant if the chip includes an RF front end</td><td class="v-idle">out of scope</td></tr>
 </tbody></table></div>
 
 <h3>Comments</h3>
@@ -214,24 +243,28 @@
 <li><strong>If the carrier is on chip:</strong> the PLL (VCO plus first dividers) becomes the one block that truly needs HBTs, and it is a larger risk than the whole ADC. The AnalogAcademy course has no HBT or VCO module. Module 2 (the 50 GHz amplifier) is the only RF-flow practice and would move from &ldquo;skip&rdquo; to &ldquo;useful&rdquo;.</li>
 <li><strong>The DAC is the tightest block</strong> at 200 MS/s: usable output is capped near 65 MHz by the fs/3 rule. If the radar waveform needs more bandwidth, raise the DAC rate, not the architecture.</li>
 <li><strong>Clock jitter matters more than device speed.</strong> A 1.6 ps rms budget at 100 MHz input is demanding for a ring VCO; an LC VCO or an off-chip clean reference is the conservative choice.</li>
-<li><strong>Supplies:</strong> digital and comparator at 1.2 V; sampling switch, bias and anything needing signal swing at 3.3 V; pads at 3.3 V. This forces two power domains and level shifters.</li>
+<li><strong>77 GHz in numbers.</strong> One transistor has 15 dB of unilateral gain at 77 GHz typical and 11 dB at the worst corner before any matching, wiring or pad loss, all of which take several dB away. That is workable for a multi-stage LNA but leaves little margin for a power amplifier, and it needs EM-simulated inductors and lines plus a package other than plastic QFN. 24 GHz has 22&ndash;25 dB of device gain: roughly 10 dB more.</li>
+<li><strong>VCO tank at 24 GHz.</strong> The PDK's 2 nH inductor resonates at 22 GHz, so 24 GHz needs inductors of 0.4 nH or less (not simulated here). The only SPICE varactor is the 3.3 V MOS type with Q of 8 to 17 at 24 GHz, so the tank Q will be about 10 and phase noise is the number to simulate next.</li>
+<li><strong>Supplies:</strong> digital and comparator at 1.2 V; sampling switch, bias and anything needing signal swing at 3.3 V; pads at 3.3 V. This forces two power domains and level shifters. HBT stacks (a CML divider needs three levels) run from the 3.3 V domain or a 2.5 V regulator, each device below 1.6 V.</li>
 <li><strong>Anti-alias and reconstruction filters:</strong> the conservative choice is off-chip, or a gm-C filter at ~100 MHz. A fully on-chip active-RC filter at 100 MHz is beyond the ~20 MHz ceiling above.</li>
 </ul>
 
-<h2 id="verify">6. Verify before trusting<a class="anchor" href="#verify"> #</a></h2>
+<h2 id="verify">6. How it was measured, and what is still open<a class="anchor" href="#verify"> #</a></h2>
+<p>Everything in 3a is reproducible on this machine: <code>source /opt/tools/analog/env.sh</code> (xschem 3.4.7, ngspice 46 with the PSP models, Xyce 7.10, Qucs-S, openEMS, KLayout, magic, netgen, JupyterLab; PDK at <code>/opt/tools/pdk/ihp-sg13g2</code>). Scripts are in <code>/opt/tools/analog/tests</code>.</p>
 <div class="table-wrap"><table>
-<thead><tr><th>Question</th><th>Measure</th><th>How</th></tr></thead>
+<thead><tr><th>Result</th><th>Script</th><th>Method</th></tr></thead>
 <tbody>
-<tr><td>Real fT of the HBT vs collector current</td><td>Current gain h21</td><td>AC sweep of base current with fixed V<sub>CE</sub>; read the 0 dB crossing; repeat over I<sub>C</sub>. Find the peak and your operating point</td></tr>
-<tr><td>Real fmax</td><td>Maximum available power gain</td><td>S-parameter sweep (Xyce or QUCS-S setup in the PDK)</td></tr>
-<tr><td>fT of LV and HV MOS</td><td>Current gain at the intended bias</td><td>Same AC test on <code>sg13_lv_nmos</code> and <code>sg13_hv_nmos</code>; the gm/Id tables from AnalogAcademy Module 0 also give gm/Cgg</td></tr>
-<tr><td>Inductor Q and self-resonance</td><td>S-parameters of the inductor cells</td><td>OpenEMS or Palace setups shipped in the PDK</td></tr>
-<tr><td>Comparator speed, DAC settling</td><td>Transient, corners, Monte Carlo</td><td>AnalogAcademy Module 3 testbenches as the starting point</td></tr>
+<tr><td>HBT and MOS fT / fmax versus bias, V<sub>CE</sub>, emitters</td><td><code>t13_device_speed.sh</code> (<code>lib/devspeed.py</code>)</td><td>Two-port Y parameters from AC runs; |h21| = 1 and Mason's U = 1 crossings</td></tr>
+<tr><td>HBT corners, temperature, gain at 24 / 60 / 77 / 94 GHz; MOS at g<sub>m</sub>/I<sub>d</sub> = 10</td><td><code>lib/hbt_corners.py</code>, <code>lib/hbt_gain_at_freq.py</code>, <code>lib/mos_fT_at_gmid.py</code></td><td>Same two-port method at <code>hbt_typ</code>/<code>hbt_bcs</code>/<code>hbt_wcs</code>, &minus;40 to 125 &deg;C</td></tr>
+<tr><td>FO4, flip-flop and TSPC dividers</td><td><code>t14_cmos_speed.sh</code>, <code>lib/fo4_ring.py</code></td><td>Ring oscillator of standard cells; highest clock that still divides, found by stepping the clock</td></tr>
+<tr><td>HBT CML divider</td><td><code>t15_hbt_divider.sh</code></td><td>Master/slave latches of <code>npn13G2</code>, sine clock stepped upward, output period checked</td></tr>
+<tr><td>Inductor Q and self-resonance</td><td><code>t04_openems_inductor.sh</code>, <code>lib/inductor_srf.py</code></td><td>openEMS FDTD of the PDK example, compared with IHP's measurement (L within 2 %)</td></tr>
+<tr><td>Varactor C and Q</td><td><code>lib/varactor.py</code></td><td>One-port admittance from AC runs at 1 and 24 GHz</td></tr>
 </tbody></table></div>
-<p>Environment note: these tests need the IHP PDK plus a current xschem and ngspice (or Xyce). On this machine the toolchain is installed under <code>/opt/tools</code>: <code>source /opt/tools/analog/env.sh</code> gives xschem 3.4.7, ngspice 46 (with the PSP models), Xyce 7.10, Qucs-S, openEMS, KLayout, magic, netgen and JupyterLab, with the IHP PDK at <code>/opt/tools/pdk/ihp-sg13g2</code>. The fT/fmax and cell-frequency measurements above can be run there; the openEMS inductor example, for instance, reproduces IHP's own result within 2 %.</p>
+<p><strong>Not measured here, so still open:</strong> noise figure (NF<sub>min</sub>) of the HBT, VCO phase noise and tank Q at 24 GHz (needs a 0.3 nH inductor simulated in openEMS and an oscillator run), post-layout parasitics, pads and package (QFN bond wires at 24 and 77 GHz), mismatch and Monte Carlo of the RF blocks, power-amplifier output power and compression. The two <code>moscap</code> PCells are also broken in this PDK commit (an upstream bug).</p>
 
 <hr>
-<p><small>Sources: IHP-AnalogAcademy README (SG13G2 highlights, device list); IHP Open PDK model and library files; <code>adc/docs/00-decisions.html</code> and <code>03-silicon.html</code> for the radar plan. Ceilings in section 3 are conservative estimates, to be replaced by the measurements in section 6.</small></p>
+<p><small>Sources: IHP-AnalogAcademy README (SG13G2 highlights, device list); IHP Open PDK model and library files (commit c1d6f49e) simulated with ngspice 46; IHP's measured inductor data from the PDK's git history; <code>adc/docs/00-decisions.html</code> and <code>03-silicon.html</code> for the radar plan. Ceilings in 3b are the measured worst cases of 3a with margin; rows marked estimate are rules of thumb.</small></p>
 </main>
 </body>
 </html>
