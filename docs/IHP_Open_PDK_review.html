@@ -228,7 +228,7 @@
 <tr><td>Inductor Q and self-resonance</td><td>S-parameters of the inductor cells</td><td>OpenEMS or Palace setups shipped in the PDK</td></tr>
 <tr><td>Comparator speed, DAC settling</td><td>Transient, corners, Monte Carlo</td><td>AnalogAcademy Module 3 testbenches as the starting point</td></tr>
 </tbody></table></div>
-<p>Environment note: these tests need the IHP PDK plus a current xschem and ngspice (or Xyce). The host xschem 2.8.1 and ngspice rev 31 are too old; the tutorial toolchain (container) is still the open item.</p>
+<p>Environment note: these tests need the IHP PDK plus a current xschem and ngspice (or Xyce). On this machine the toolchain is installed under <code>/opt/tools</code>: <code>source /opt/tools/analog/env.sh</code> gives xschem 3.4.7, ngspice 46 (with the PSP models), Xyce 7.10, Qucs-S, openEMS, KLayout, magic, netgen and JupyterLab, with the IHP PDK at <code>/opt/tools/pdk/ihp-sg13g2</code>. The fT/fmax and cell-frequency measurements above can be run there; the openEMS inductor example, for instance, reproduces IHP's own result within 2 %.</p>
 
 <hr>
 <p><small>Sources: IHP-AnalogAcademy README (SG13G2 highlights, device list); IHP Open PDK model and library files; <code>adc/docs/00-decisions.html</code> and <code>03-silicon.html</code> for the radar plan. Ceilings in section 3 are conservative estimates, to be replaced by the measurements in section 6.</small></p>
