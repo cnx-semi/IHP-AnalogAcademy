@@ -330,3 +330,11 @@ descr="load waves"
 tclcommand="xschem raw_read $netlist_dir/bgr_temp.raw dc"
 }
 C {two_stage_OTA.sym} -260 -695 0 0 {name=x1}
+C {devices/gnd.sym} -20 -490 2 0 {name=l_sub_gnd lab=GND}
+C {sg13g2_pr/ptap1.sym} -20 -460 0 0 {name=R_SUB
+model=ptap1
+spiceprefix=X
+w=100.78e-6
+l=100.78e-6
+}
+C {sg13g2_pr/sub.sym} -20 -430 0 0 {name=l_sub lab=sub!}

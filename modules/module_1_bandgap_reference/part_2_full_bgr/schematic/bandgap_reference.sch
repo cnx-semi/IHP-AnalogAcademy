@@ -369,3 +369,11 @@ l=18.195e-6
 m=1
 spiceprefix=X}
 C {two_stage_OTA.sym} -260 -695 0 0 {name=x1}
+C {devices/gnd.sym} 200 -310 2 0 {name=l_sub_gnd lab=GND}
+C {sg13g2_pr/ptap1.sym} 200 -280 0 0 {name=R_SUB
+model=ptap1
+spiceprefix=X
+w=100.78e-6
+l=100.78e-6
+}
+C {sg13g2_pr/sub.sym} 200 -250 0 0 {name=l_sub lab=sub!}
