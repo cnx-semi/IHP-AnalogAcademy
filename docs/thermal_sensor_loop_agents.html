@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>On-die thermal sensor: loop-agent orchestrator tutorial</title>
+<style>
+:root{
+  --ink:#16191d; --ink-soft:#4a5159; --ink-faint:#6b747d;
+  --rule:#dfe3e8; --rule-soft:#eceff2; --bg:#fff; --bg-soft:#f7f8fa;
+  --accent:#0b5cad; --accent-bg:#eaf2fb;
+  --flag:#a3341c; --flag-bg:#fdf3f0; --ok:#1d6f42; --ok-bg:#eef7f1; --warn:#8a6a00; --warn-bg:#fdf8e6;
+  /* role colours (used in tables and SVG) */
+  --c-human:#a3341c; --c-human-bg:#fdf3f0;
+  --c-cond:#0b5cad;  --c-cond-bg:#eaf2fb;
+  --c-build:#1d6f42; --c-build-bg:#eef7f1;
+  --c-integ:#0f6e73; --c-integ-bg:#e8f5f5;
+  --c-ver:#8a6a00;   --c-ver-bg:#fdf8e6;
+  --c-rev:#6b3fa0;   --c-rev-bg:#f3edfa;
+  --c-file:#4a5159;  --c-file-bg:#f1f3f5;
+  --mono:ui-monospace,"SF Mono","DejaVu Sans Mono","Liberation Mono",Menlo,Consolas,monospace;
+  --text:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.62 var(--text);-webkit-text-size-adjust:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:2.5rem 1.5rem 6rem}
+h1{font-size:1.9rem;line-height:1.25;margin:.2rem 0 .4rem}
+h2{font-size:1.38rem;margin:3rem 0 .6rem;padding-top:1rem;border-top:2px solid var(--rule)}
+h3{font-size:1.08rem;margin:1.8rem 0 .4rem}
+p{margin:.55rem 0}
+ul,ol{margin:.4rem 0 .6rem;padding-left:1.4rem}
+li{margin:.2rem 0}
+code{font-family:var(--mono);font-size:.88em;background:var(--bg-soft);border:1px solid var(--rule-soft);border-radius:4px;padding:.05em .35em}
+pre{font-family:var(--mono);font-size:.84rem;background:var(--bg-soft);border:1px solid var(--rule);border-radius:6px;padding:.8rem 1rem;overflow:auto;line-height:1.5}
+pre code{background:none;border:0;padding:0}
+a{color:var(--accent)}
+.sub{color:var(--ink-soft);margin:0 0 1rem}
+.meta{font-size:.85rem;color:var(--ink-faint)}
+nav.toc{background:var(--bg-soft);border:1px solid var(--rule);border-radius:8px;padding:.8rem 1.2rem;margin:1.2rem 0 1.5rem;columns:2;column-gap:2rem;font-size:.92rem}
+nav.toc a{display:block;text-decoration:none;padding:.1rem 0}
+nav.toc a:hover{text-decoration:underline}
+.callout{border-left:4px solid var(--accent);background:var(--accent-bg);padding:.7rem 1rem;border-radius:0 6px 6px 0;margin:1rem 0}
+.callout.flag{border-color:var(--flag);background:var(--flag-bg)}
+.callout.ok{border-color:var(--ok);background:var(--ok-bg)}
+.callout.warn{border-color:var(--warn);background:var(--warn-bg)}
+.callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}
+.table-wrap{overflow-x:auto;margin:.8rem 0 1.2rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{border:1px solid var(--rule);padding:.42rem .6rem;text-align:left;vertical-align:top}
+th{background:var(--bg-soft);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.hl td{background:var(--warn-bg)}
+.tag{display:inline-block;font-size:.75rem;font-weight:600;border-radius:4px;padding:.05rem .45rem;border:1px solid;white-space:nowrap}
+.t-human{color:var(--c-human);background:var(--c-human-bg);border-color:var(--c-human)}
+.t-cond{color:var(--c-cond);background:var(--c-cond-bg);border-color:var(--c-cond)}
+.t-build{color:var(--c-build);background:var(--c-build-bg);border-color:var(--c-build)}
+.t-integ{color:var(--c-integ);background:var(--c-integ-bg);border-color:var(--c-integ)}
+.t-ver{color:var(--c-ver);background:var(--c-ver-bg);border-color:var(--c-ver)}
+.t-rev{color:var(--c-rev);background:var(--c-rev-bg);border-color:var(--c-rev)}
+.t-file{color:var(--c-file);background:var(--c-file-bg);border-color:var(--c-file)}
+.assume{color:var(--warn);font-weight:600}
+figure{margin:1.2rem 0}
+figure svg{width:100%;height:auto;display:block;border:1px solid var(--rule);border-radius:8px;background:#fff}
+figcaption{font-size:.85rem;color:var(--ink-soft);margin-top:.4rem}
+.legend{display:flex;flex-wrap:wrap;gap:.5rem;margin:.4rem 0 .8rem}
+.dec{border:1px solid var(--rule);border-radius:8px;margin:.9rem 0;padding:.2rem 1rem .6rem;background:#fff}
+.dec h3{margin:.7rem 0 .3rem}
+.dec .rec{background:var(--ok-bg);border-left:4px solid var(--ok);padding:.4rem .7rem;border-radius:0 6px 6px 0;margin:.5rem 0}
+.check li{list-style:none;margin-left:-1.2rem}
+.check li::before{content:"\2610\00a0"}
+/* SVG classes */
+svg text{font-family:var(--text);fill:var(--ink)}
+svg .t{font-size:13px}
+svg .ts{font-size:11px;fill:var(--ink-soft)}
+svg .tb{font-size:14px;font-weight:700}
+svg .th{font-size:15px;font-weight:700}
+svg .mono{font-family:var(--mono);font-size:11px}
+svg .box{stroke-width:1.6;rx:7}
+svg .human{fill:var(--c-human-bg);stroke:var(--c-human)}
+svg .cond{fill:var(--c-cond-bg);stroke:var(--c-cond)}
+svg .build{fill:var(--c-build-bg);stroke:var(--c-build)}
+svg .integ{fill:var(--c-integ-bg);stroke:var(--c-integ)}
+svg .ver{fill:var(--c-ver-bg);stroke:var(--c-ver)}
+svg .rev{fill:var(--c-rev-bg);stroke:var(--c-rev)}
+svg .file{fill:var(--c-file-bg);stroke:var(--c-file)}
+svg .frame{fill:none;stroke:var(--rule);stroke-width:1.5;stroke-dasharray:6 4;rx:10}
+svg .ln{stroke:var(--ink-soft);stroke-width:1.5;fill:none}
+svg .ln.dash{stroke-dasharray:5 4}
+svg .ln.red{stroke:var(--flag)}
+svg .ln.grn{stroke:var(--ok)}
+svg .arrow{fill:var(--ink-soft)}
+@media (max-width:760px){nav.toc{columns:1}.wrap{padding:1.5rem 1rem 4rem}}
+@media print{.wrap{max-width:none;padding:0}h2{break-after:avoid}figure,.dec,table{break-inside:avoid}nav.toc{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="meta">IHP-AnalogAcademy &middot; review draft v1 &middot; 2026-10-13 &middot; status: <strong>awaiting your review. No agents for this design exist yet.</strong></p>
+<h1>On-die thermal sensor: a loop-agent orchestrator tutorial</h1>
+<p class="sub">A worked example of loop engineering with Claude Code: an AXI4-Lite temperature sensor (probe + ADC + register block) built by a hierarchy of builder / verifier / reviewer agents. Read it, change anything, then approve it section by section. I will create the agent files one at a time only after you sign off.</p>
+
+<nav class="toc">
+  <a href="#s0">0. How to review this page</a>
+  <a href="#s1">1. What we are building</a>
+  <a href="#s2">2. Loop engineering in one page</a>
+  <a href="#s3">3. The organization chart</a>
+  <a href="#s4">4. Agent catalog (every agent, tools, scope)</a>
+  <a href="#s5">5. System spec and error budget</a>
+  <a href="#s6">6. Interface contract (analog, digital, registers)</a>
+  <a href="#s7">7. Loops, judges and stop rules</a>
+  <a href="#s8">8. Human decisions I need from you</a>
+  <a href="#s9">9. Repository layout and file ownership</a>
+  <a href="#s10">10. Build phases and gates</a>
+  <a href="#s11">11. How it runs in Claude Code (and limits)</a>
+  <a href="#s12">12. Risks and open items</a>
+  <a href="#s13">13. Review checklist and next steps</a>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="s0">0. How to review this page</h2>
+<p>You are the only decision maker. Agents propose, test and report; they never change the spec. Please read in this order:</p>
+<ol>
+  <li><a href="#s3">Section 3</a>: is the organization right? (roles, who reports to whom)</li>
+  <li><a href="#s8">Section 8</a>: the nine decisions only you can make. Each has my recommendation.</li>
+  <li><a href="#s5">Section 5</a> and <a href="#s6">6</a>: the spec numbers and interface contract the agents will be judged against.</li>
+  <li><a href="#s13">Section 13</a>: tick the checklist, then tell me which agent to build first.</li>
+</ol>
+<div class="callout warn">
+  <p><strong>Confidence labels.</strong> Numbers marked <span class="assume">(assumed)</span> are my proposals from general knowledge of on-die thermal sensors, not measured on this PDK and not copied from a datasheet. The sensor and ADC squads will confirm or push back on them in Phase 1; any change comes back to you.</p>
+</div>
+<div class="callout flag">
+  <p><strong>One correction to what I said in chat.</strong> I said a 10-bit ADC gives about 0.25&nbsp;&deg;C per LSB. That assumed the whole code range maps to temperature. With the ratiometric scheme recommended here, -40..125&nbsp;&deg;C only occupies about 20&ndash;27&nbsp;% of the code range, so a 10-bit ADC gives about <strong>0.6&ndash;0.8&nbsp;&deg;C per LSB</strong> and a 12-bit ADC about 0.15&ndash;0.2&nbsp;&deg;C. See decision D1.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. What we are building</h2>
+<p>A small mixed-signal macro that measures die temperature and exposes it to a processor over AXI4-Lite, with a hardware over-temperature alarm. Target process: IHP SG13G2 (130&nbsp;nm BiCMOS, open PDK), using the course's open-source flow (xschem, ngspice/Xyce, KLayout, Verilator, Icarus).</p>
+
+<figure>
+<svg viewBox="0 0 1180 300" role="img" aria-label="Signal chain from thermal probe to AXI-Lite">
+  <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="arrow"/></marker></defs>
+  <rect class="frame" x="10" y="20" width="560" height="250"/>
+  <text class="ts" x="24" y="40">ANALOG (1.2 V core or analog supply: decision D3)</text>
+  <rect class="frame" x="590" y="20" width="580" height="250"/>
+  <text class="ts" x="604" y="40">DIGITAL (system clock domain)</text>
+
+  <rect class="box build" x="30" y="90" width="190" height="110"/>
+  <text class="tb" x="125" y="122" text-anchor="middle">Thermal probe</text>
+  <text class="ts" x="125" y="142" text-anchor="middle">npn13G2 pair, ratio N=8</text>
+  <text class="ts" x="125" y="158" text-anchor="middle">&Delta;V<tspan baseline-shift="sub" font-size="9">BE</tspan> (PTAT) and V<tspan baseline-shift="sub" font-size="9">BE</tspan> (CTAT)</text>
+  <text class="ts" x="125" y="176" text-anchor="middle">bias + startup</text>
+
+  <rect class="box build" x="320" y="90" width="230" height="110"/>
+  <text class="tb" x="435" y="122" text-anchor="middle">SAR ADC (ratiometric)</text>
+  <text class="ts" x="435" y="142" text-anchor="middle">N bits (D1), C-DAC, comparator,</text>
+  <text class="ts" x="435" y="158" text-anchor="middle">bootstrapped switch, SAR logic</text>
+  <text class="ts" x="435" y="176" text-anchor="middle">reference = V<tspan baseline-shift="sub" font-size="9">REF</tspan> from the probe</text>
+
+  <rect class="box build" x="620" y="90" width="210" height="110"/>
+  <text class="tb" x="725" y="122" text-anchor="middle">Sensor controller</text>
+  <text class="ts" x="725" y="142" text-anchor="middle">conversion FSM, averaging,</text>
+  <text class="ts" x="725" y="158" text-anchor="middle">trim offset, threshold compare</text>
+  <text class="ts" x="725" y="176" text-anchor="middle">clock divider</text>
+
+  <rect class="box build" x="880" y="90" width="170" height="110"/>
+  <text class="tb" x="965" y="122" text-anchor="middle">AXI4-Lite slave</text>
+  <text class="ts" x="965" y="142" text-anchor="middle">register file, IRQ</text>
+
+  <rect class="box file" x="1075" y="110" width="85" height="70"/>
+  <text class="tb" x="1117" y="140" text-anchor="middle">SoC</text>
+  <text class="ts" x="1117" y="158" text-anchor="middle">AXI master</text>
+
+  <path class="ln" marker-end="url(#a1)" d="M220 130H318"/>
+  <text class="mono" x="269" y="122" text-anchor="middle">V_PTAT</text>
+  <path class="ln" marker-end="url(#a1)" d="M220 165H318"/>
+  <text class="mono" x="269" y="182" text-anchor="middle">V_REF</text>
+  <path class="ln" marker-end="url(#a1)" d="M550 145H618"/>
+  <text class="mono" x="584" y="136" text-anchor="middle">code</text>
+  <path class="ln" marker-end="url(#a1)" d="M830 145H878"/>
+  <path class="ln" marker-end="url(#a1)" d="M1050 145H1073"/>
+  <path class="ln" marker-start="url(#a1)" d="M1050 160H1073"/>
+  <path class="ln dash red" marker-end="url(#a1)" d="M965 90V60H1117V108"/>
+  <text class="mono" x="1040" y="56" text-anchor="middle" style="fill:var(--flag)">irq (over-temp)</text>
+  <path class="ln dash" marker-end="url(#a1)" d="M725 230V202"/>
+  <text class="ts" x="725" y="246" text-anchor="middle">clk, rst_n (system)</text>
+  <path class="ln dash" marker-end="url(#a1)" d="M660 200V222H435V202"/>
+  <text class="ts" x="548" y="240" text-anchor="middle">start / sample strobes, clk_adc</text>
+</svg>
+<figcaption>Figure 1. Signal chain. Green = blocks designed by a squad. The probe feeds the ADC two voltages and the ADC uses V<sub>REF</sub> as its own reference, so the code depends on a ratio and not on absolute voltage.</figcaption>
+</figure>
+
+<h3>Why ratiometric</h3>
+<p>The probe produces <code>V_PTAT = &alpha;&middot;&Delta;V<sub>BE</sub></code> (proportional to absolute temperature) and <code>V_REF = V<sub>BE</sub> + &alpha;&middot;&Delta;V<sub>BE</sub></code> (about a bandgap voltage). The ADC converts <code>&mu; = V_PTAT / V_REF</code>. Because <code>V_REF</code> is also the ADC reference, absolute reference accuracy cancels and temperature is a linear function of the code: <code>T[K] &asymp; A&middot;&mu;</code>. The price is that only part of the code range is used (section 8, D1).</p>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. Loop engineering in one page</h2>
+<p>A loop is <strong>act &rarr; check with an objective signal &rarr; decide &rarr; repeat</strong>. Five parts make it reliable:</p>
+<div class="table-wrap"><table>
+<tr><th>Part</th><th>Question</th><th>In this project</th></tr>
+<tr><td>Goal</td><td>What does done look like?</td><td>A spec row with a number and a test condition, in <code>CONTRACT.md</code></td></tr>
+<tr><td>Signal</td><td>How does anyone know?</td><td>A <em>judge script</em> that prints <code>PASS</code>/<code>FAIL</code>/<code>ERROR</code> (not a model opinion)</td></tr>
+<tr><td>Scope</td><td>What may be changed?</td><td>Per-agent edit directories; PDK and course modules read-only</td></tr>
+<tr><td>State</td><td>What survives between rounds?</td><td><code>PROGRESS.md</code> per block + git commits</td></tr>
+<tr><td>Stop rules</td><td>When to quit?</td><td>Success, round cap, no-progress (same failure 3&times;), tooling-error cap, <em>escalate to you</em></td></tr>
+</table></div>
+
+<figure>
+<svg viewBox="0 0 1000 360" role="img" aria-label="One squad loop">
+  <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="arrow"/></marker></defs>
+  <rect class="box cond" x="20" y="130" width="150" height="70"/>
+  <text class="tb" x="95" y="160" text-anchor="middle">Conductor</text>
+  <text class="ts" x="95" y="180" text-anchor="middle">/loop-block &hellip;</text>
+
+  <rect class="box ver" x="270" y="40" width="190" height="70"/>
+  <text class="tb" x="365" y="70" text-anchor="middle">Verifier</text>
+  <text class="ts" x="365" y="90" text-anchor="middle">runs the judge, read-only</text>
+
+  <rect class="box file" x="270" y="250" width="190" height="70"/>
+  <text class="tb" x="365" y="278" text-anchor="middle">Judge script</text>
+  <text class="ts" x="365" y="298" text-anchor="middle">deterministic code</text>
+
+  <rect class="box build" x="560" y="130" width="190" height="70"/>
+  <text class="tb" x="655" y="160" text-anchor="middle">Builder</text>
+  <text class="ts" x="655" y="180" text-anchor="middle">ONE change per call</text>
+
+  <rect class="box rev" x="800" y="40" width="180" height="70"/>
+  <text class="tb" x="890" y="70" text-anchor="middle">Reviewer</text>
+  <text class="ts" x="890" y="90" text-anchor="middle">adversarial, read-only</text>
+
+  <rect class="box human" x="800" y="250" width="180" height="70"/>
+  <text class="tb" x="890" y="278" text-anchor="middle">You</text>
+  <text class="ts" x="890" y="298" text-anchor="middle">only for decisions</text>
+
+  <path class="ln" marker-end="url(#a2)" d="M170 150L268 85"/><text class="ts" x="185" y="104">1 run check</text>
+  <path class="ln dash" marker-end="url(#a2)" d="M365 112V248"/><text class="ts" x="372" y="190">runs</text>
+  <path class="ln red" marker-end="url(#a2)" d="M460 90C520 100 560 120 600 128"/><text class="ts" x="468" y="140" style="fill:var(--flag)">2 FAIL / ERROR</text><text class="ts" x="468" y="154" style="fill:var(--flag)">(verbatim failure)</text>
+  <path class="ln grn" marker-end="url(#a2)" d="M460 60H798"/><text class="ts" x="560" y="52" style="fill:var(--ok)">3 PASS (all conditions)</text>
+  <path class="ln red" marker-end="url(#a2)" d="M830 112C800 150 770 165 752 165"/><text class="ts" x="760" y="140" style="fill:var(--flag)">REJECT + reasons</text>
+  <path class="ln dash" marker-end="url(#a2)" d="M890 112V248"/><text class="ts" x="880" y="184" text-anchor="end">ESCALATE:</text><text class="ts" x="880" y="198" text-anchor="end">decision needed</text>
+  <path class="ln" marker-end="url(#a2)" d="M560 190C480 240 330 230 172 195"/><text class="ts" x="20" y="232">4 next round</text><text class="ts" x="20" y="246">(state: PROGRESS.md)</text>
+</svg>
+<figcaption>Figure 2. One squad loop. The builder never grades itself; the verifier cannot edit; the reviewer can only reject or escalate. Success means <em>judge PASS and reviewer APPROVE</em>.</figcaption>
+</figure>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. The organization chart</h2>
+<p>Your sketch maps one-to-one to this chart. Roles are job functions; the file count is smaller than the box count because verifiers and reviewers are reusable (the block they check is just an argument to the judge).</p>
+
+<div class="legend">
+  <span class="tag t-human">You</span><span class="tag t-cond">Conductor</span><span class="tag t-build">Block designer (builder)</span>
+  <span class="tag t-integ">Integrator (builder)</span><span class="tag t-ver">Verifier</span><span class="tag t-rev">Reviewer</span><span class="tag t-file">Shared file</span>
+</div>
+
+<figure>
+<svg viewBox="0 0 1260 740" role="img" aria-label="Organization chart of loop agents">
+  <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="arrow"/></marker></defs>
+
+  <!-- top -->
+  <rect class="box human" x="480" y="14" width="300" height="56"/>
+  <text class="th" x="630" y="40" text-anchor="middle">YOU: decisions only</text>
+  <text class="ts" x="630" y="58" text-anchor="middle">spec owner, approves contract and gates</text>
+
+  <rect class="box cond" x="450" y="112" width="360" height="66"/>
+  <text class="th" x="630" y="139" text-anchor="middle">Conductor / system owner</text>
+  <text class="ts" x="630" y="158" text-anchor="middle">main Claude session &middot; /loop-block /loop-integrate /loop-system</text>
+
+  <path class="ln" marker-end="url(#a3)" d="M610 112V72"/>
+  <text class="ts" x="560" y="96" text-anchor="end" style="fill:var(--flag)">DECISIONS-NEEDED.md</text>
+  <path class="ln dash" marker-end="url(#a3)" d="M650 72V110"/>
+  <text class="ts" x="662" y="96">approved CONTRACT.md</text>
+
+  <!-- bus -->
+  <path class="ln" d="M630 178V210"/>
+  <path class="ln" d="M130 210H1130"/>
+  <path class="ln" marker-end="url(#a3)" d="M130 210V232"/>
+  <path class="ln" marker-end="url(#a3)" d="M380 210V232"/>
+  <path class="ln" marker-end="url(#a3)" d="M630 210V232"/>
+  <path class="ln" marker-end="url(#a3)" d="M880 210V232"/>
+  <path class="ln" marker-end="url(#a3)" d="M1130 210V232"/>
+
+  <!-- column frames -->
+  <rect class="frame" x="12" y="232" width="236" height="400"/>
+  <rect class="frame" x="262" y="232" width="236" height="400"/>
+  <rect class="frame" x="512" y="232" width="236" height="400"/>
+  <rect class="frame" x="762" y="232" width="236" height="400"/>
+  <rect class="frame" x="1012" y="232" width="236" height="400"/>
+
+  <text class="tb" x="130" y="258" text-anchor="middle">SENSOR squad</text>
+  <text class="tb" x="380" y="258" text-anchor="middle">ADC squad</text>
+  <text class="tb" x="630" y="258" text-anchor="middle">DIGITAL squad</text>
+  <text class="tb" x="880" y="258" text-anchor="middle">INTEGRATION</text>
+  <text class="tb" x="1130" y="258" text-anchor="middle">SYSTEM</text>
+  <text class="ts" x="130" y="274" text-anchor="middle">phase 1 &middot; parallel</text>
+  <text class="ts" x="380" y="274" text-anchor="middle">phase 1 &middot; parallel</text>
+  <text class="ts" x="630" y="274" text-anchor="middle">phase 1 &middot; parallel</text>
+  <text class="ts" x="880" y="274" text-anchor="middle">phase 2</text>
+  <text class="ts" x="1130" y="274" text-anchor="middle">phase 3</text>
+
+  <!-- sensor -->
+  <rect class="box build" x="28" y="292" width="204" height="74"/>
+  <text class="tb" x="130" y="318" text-anchor="middle">sensor-designer</text>
+  <text class="ts" x="130" y="336" text-anchor="middle">BJT &Delta;V<tspan baseline-shift="sub" font-size="8">BE</tspan> core, bias,</text>
+  <text class="ts" x="130" y="352" text-anchor="middle">startup, V_PTAT / V_REF</text>
+  <rect class="box ver" x="28" y="400" width="204" height="62"/>
+  <text class="tb" x="130" y="426" text-anchor="middle">unit-verifier</text>
+  <text class="ts" x="130" y="446" text-anchor="middle">judge: judge_sensor.sh</text>
+  <rect class="box rev" x="28" y="496" width="204" height="62"/>
+  <text class="tb" x="130" y="522" text-anchor="middle">unit-reviewer</text>
+  <text class="ts" x="130" y="542" text-anchor="middle">gaming + gaps, escalates</text>
+  <path class="ln" marker-end="url(#a3)" d="M130 366V398"/>
+  <path class="ln" marker-end="url(#a3)" d="M130 462V494"/>
+
+  <!-- adc -->
+  <rect class="box build" x="278" y="292" width="204" height="74"/>
+  <text class="tb" x="380" y="318" text-anchor="middle">adc-designer</text>
+  <text class="ts" x="380" y="336" text-anchor="middle">SAR: comparator, C-DAC,</text>
+  <text class="ts" x="380" y="352" text-anchor="middle">switches, SAR logic</text>
+  <rect class="box ver" x="278" y="400" width="204" height="62"/>
+  <text class="tb" x="380" y="426" text-anchor="middle">unit-verifier</text>
+  <text class="ts" x="380" y="446" text-anchor="middle">judge: judge_adc.sh</text>
+  <rect class="box rev" x="278" y="496" width="204" height="62"/>
+  <text class="tb" x="380" y="522" text-anchor="middle">unit-reviewer</text>
+  <text class="ts" x="380" y="542" text-anchor="middle">gaming + gaps, escalates</text>
+  <path class="ln" marker-end="url(#a3)" d="M380 366V398"/>
+  <path class="ln" marker-end="url(#a3)" d="M380 462V494"/>
+
+  <!-- digital -->
+  <rect class="box build" x="528" y="292" width="204" height="74"/>
+  <text class="tb" x="630" y="318" text-anchor="middle">axi-reg-designer</text>
+  <text class="ts" x="630" y="336" text-anchor="middle">RTL: AXI4-Lite slave,</text>
+  <text class="ts" x="630" y="352" text-anchor="middle">controller FSM, IRQ</text>
+  <rect class="box ver" x="528" y="400" width="204" height="62"/>
+  <text class="tb" x="630" y="426" text-anchor="middle">unit-verifier</text>
+  <text class="ts" x="630" y="446" text-anchor="middle">judge: judge_axi.sh</text>
+  <rect class="box rev" x="528" y="496" width="204" height="62"/>
+  <text class="tb" x="630" y="522" text-anchor="middle">unit-reviewer</text>
+  <text class="ts" x="630" y="542" text-anchor="middle">gaming + gaps, escalates</text>
+  <path class="ln" marker-end="url(#a3)" d="M630 366V398"/>
+  <path class="ln" marker-end="url(#a3)" d="M630 462V494"/>
+
+  <!-- integration -->
+  <rect class="box integ" x="778" y="292" width="204" height="58"/>
+  <text class="tb" x="880" y="316" text-anchor="middle">sensor-adc-integrator</text>
+  <text class="ts" x="880" y="334" text-anchor="middle">levels, range, settling</text>
+  <rect class="box integ" x="778" y="362" width="204" height="58"/>
+  <text class="tb" x="880" y="386" text-anchor="middle">axi-adc-integrator</text>
+  <text class="ts" x="880" y="404" text-anchor="middle">cosim: register &rarr; code</text>
+  <rect class="box ver" x="778" y="446" width="204" height="62"/>
+  <text class="tb" x="880" y="472" text-anchor="middle">unit-verifier</text>
+  <text class="ts" x="880" y="492" text-anchor="middle">judge_int_*.sh</text>
+  <rect class="box rev" x="778" y="538" width="204" height="62"/>
+  <text class="tb" x="880" y="564" text-anchor="middle">unit-reviewer</text>
+  <text class="ts" x="880" y="584" text-anchor="middle">interface-gaming focus</text>
+  <path class="ln" marker-end="url(#a3)" d="M880 420V444"/>
+  <path class="ln" marker-end="url(#a3)" d="M880 508V536"/>
+
+  <!-- system -->
+  <rect class="box ver" x="1028" y="292" width="204" height="74"/>
+  <text class="tb" x="1130" y="318" text-anchor="middle">system-verifier</text>
+  <text class="ts" x="1130" y="336" text-anchor="middle">temp sweep &rarr; AXI read &rarr; &deg;C,</text>
+  <text class="ts" x="1130" y="352" text-anchor="middle">corners, error budget</text>
+  <rect class="box rev" x="1028" y="400" width="204" height="74"/>
+  <text class="tb" x="1130" y="426" text-anchor="middle">system-reviewer</text>
+  <text class="ts" x="1130" y="444" text-anchor="middle">contract compliance,</text>
+  <text class="ts" x="1130" y="460" text-anchor="middle">cross-level gaming</text>
+  <path class="ln" marker-end="url(#a3)" d="M1130 366V398"/>
+
+
+  <!-- shared files -->
+  <rect class="box file" x="12" y="650" width="1236" height="70"/>
+  <text class="tb" x="630" y="674" text-anchor="middle">Shared state (files, not memory)</text>
+  <text class="mono" x="630" y="696" text-anchor="middle">CONTRACT.md (you own) &middot; PROGRESS.md per block &middot; DECISIONS-NEEDED.md &middot; REQUESTS.md &middot; judge scripts &middot; git history</text>
+</svg>
+<figcaption>Figure 3. Organization chart. Verifier and reviewer boxes in the first four columns are the <em>same two agent files</em> (<code>unit-verifier</code>, <code>unit-reviewer</code>) given different judge scripts. Subagents cannot call other subagents, so the conductor is the only party that routes work (section 11).</figcaption>
+</figure>
+
+<h3>Your sketch vs this chart</h3>
+<div class="table-wrap"><table>
+<tr><th>In your sketch</th><th>In this design</th><th>Change and why</th></tr>
+<tr><td>YOU (decisions only)</td><td>YOU</td><td>Same. Reviewers return <code>ESCALATE</code>; the conductor writes <code>DECISIONS-NEEDED.md</code> and asks you.</td></tr>
+<tr><td>conductor / system owner</td><td>Conductor (main session)</td><td>Same. It is a procedure (slash commands), not a separate agent, because only the main session may call agents.</td></tr>
+<tr><td>sensor / ADC / digital squads each with verifier + reviewer</td><td>3 designers + shared <code>unit-verifier</code> / <code>unit-reviewer</code></td><td>One file each, parameterized by judge script. Fewer files to maintain; same independence, because every run is a fresh agent.</td></tr>
+<tr><td>sensor+ADC integrator, axi+ADC integrator</td><td>Two integrator builders</td><td>Same. They may not edit block files; they file requests.</td></tr>
+<tr><td>system verifier / system reviewer</td><td>Same two</td><td>Own files because they judge against the whole contract and error budget.</td></tr>
+</table></div>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. Agent catalog</h2>
+<p>Nine agent files and four slash commands. Tool lists are allow-lists: verifiers and reviewers have no <code>Edit</code>/<code>Write</code>, so they cannot fix a failure into a pass.</p>
+
+<div class="table-wrap"><table>
+<tr><th>Agent file</th><th>Role</th><th>Tools</th><th>Model</th><th>May edit</th><th>Returns</th></tr>
+<tr><td><code>sensor-designer</code></td><td><span class="tag t-build">builder</span></td><td>Read, Edit, Write, Bash, Grep, Glob</td><td>sonnet</td><td><code>blocks/sensor/**</code></td><td>files changed, one-line rationale, open risk</td></tr>
+<tr><td><code>adc-designer</code></td><td><span class="tag t-build">builder</span></td><td>same</td><td>sonnet</td><td><code>blocks/adc/**</code></td><td>same</td></tr>
+<tr><td><code>axi-reg-designer</code></td><td><span class="tag t-build">builder</span></td><td>same</td><td>sonnet</td><td><code>blocks/axi/**</code> (RTL, tests)</td><td>same</td></tr>
+<tr><td><code>sensor-adc-integrator</code></td><td><span class="tag t-integ">integrator</span></td><td>same</td><td>sonnet</td><td><code>integration/sensor_adc/**</code> only</td><td>same, plus <code>REQUESTS.md</code> entries for block owners</td></tr>
+<tr><td><code>axi-adc-integrator</code></td><td><span class="tag t-integ">integrator</span></td><td>same</td><td>sonnet</td><td><code>integration/axi_adc/**</code> only</td><td>same</td></tr>
+<tr><td><code>unit-verifier</code></td><td><span class="tag t-ver">verifier</span></td><td>Read, Bash, Grep</td><td>haiku</td><td>none</td><td><code>VERDICT</code>, first failure, verbatim evidence (&le;30 lines)</td></tr>
+<tr><td><code>system-verifier</code></td><td><span class="tag t-ver">verifier</span></td><td>Read, Bash, Grep</td><td>sonnet</td><td>none</td><td>per-corner table, error-budget table, first failure</td></tr>
+<tr><td><code>unit-reviewer</code></td><td><span class="tag t-rev">reviewer</span></td><td>Read, Grep, Bash, Glob</td><td>opus</td><td>none</td><td><code>APPROVE</code> / <code>REJECT</code> / <code>ESCALATE</code> with evidence</td></tr>
+<tr><td><code>system-reviewer</code></td><td><span class="tag t-rev">reviewer</span></td><td>Read, Grep, Bash, Glob</td><td>opus</td><td>none</td><td>same, plus contract-compliance matrix</td></tr>
+</table></div>
+
+<div class="table-wrap"><table>
+<tr><th>Command</th><th>What the conductor does</th></tr>
+<tr><td><code>/loop-block &lt;sensor|adc|axi&gt; [rounds]</code></td><td>designer &rarr; unit-verifier &rarr; (PASS) unit-reviewer, with block stop rules</td></tr>
+<tr><td><code>/loop-integrate &lt;sensor-adc|axi-adc&gt; [rounds]</code></td><td>integrator &rarr; unit-verifier &rarr; unit-reviewer; routes <code>REQUESTS.md</code> back to block designers</td></tr>
+<tr><td><code>/loop-system [rounds]</code></td><td>system-verifier &rarr; system-reviewer; on failure, routes the cause to the owning squad</td></tr>
+<tr><td><code>/thermal-status</code></td><td>read-only dashboard: each block's last verdict, open decisions, open requests</td></tr>
+</table></div>
+
+<h3>Prompt rules shared by every agent</h3>
+<ul>
+  <li><strong>Scope in writing:</strong> where it may edit, what is read-only (<code>modules/**</code>, <code>/opt/tools/**</code>, the PDK, <code>CONTRACT.md</code>, judge scripts).</li>
+  <li><strong>Forbidden list:</strong> never edit the judge or the spec; never weaken a threshold; never declare own success.</li>
+  <li><strong>One change per call</strong>, verbatim failure in, short fixed-format answer out.</li>
+  <li><strong>Escalate, don't guess:</strong> a trade-off that changes a contract number is not the agent's to choose.</li>
+  <li><strong>Toolchain:</strong> <code>. /opt/tools/analog/env.sh</code> first; the digital-flow shell is separate.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. System spec and error budget</h2>
+<p>All numbers below are <span class="assume">(assumed)</span> pending your decisions in section 8. They become <code>CONTRACT.md</code> once you approve.</p>
+
+<h3>5.1 System level</h3>
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Target</th><th>Condition</th><th>Check</th></tr>
+<tr><td>Temperature range</td><td>-40 to +125 &deg;C</td><td>die temperature</td><td>system sweep</td></tr>
+<tr><td>Accuracy, untrimmed</td><td>&plusmn;3.0 &deg;C (RSS of budget)</td><td>TT/FF/SS, 1.2 V &plusmn;5 %</td><td>system-verifier</td></tr>
+<tr><td>Accuracy, one-point trim</td><td>&plusmn;1.5 &deg;C</td><td>trim at 27 &deg;C, register <code>TRIM</code></td><td>system-verifier</td></tr>
+<tr><td>Resolution (single conversion)</td><td>&le; 0.8 &deg;C/LSB (10-bit) &mdash; see D1</td><td>code step over the range</td><td>system-verifier</td></tr>
+<tr><td>Sample rate</td><td>&ge; 100 S/s, conversion &le; 10 ms</td><td>clock 100 kHz &ndash; 1 MHz</td><td>integration cosim</td></tr>
+<tr><td>Supply sensitivity</td><td>&le; 0.2 &deg;C per 5 % supply</td><td>ratiometric benefit</td><td>sensor + system</td></tr>
+<tr><td>Power</td><td>&le; 50 &micro;W total (report only in v1)</td><td>27 &deg;C, continuous</td><td>reported</td></tr>
+<tr><td>Over-temp alarm</td><td>IRQ within 1 conversion + 2 clk of crossing</td><td><code>THRESH_HI</code></td><td>integration</td></tr>
+<tr><td>Bus</td><td>AXI4-Lite, 32-bit, OKAY responses only (no SLVERR in v1)</td><td>&mdash;</td><td>axi squad</td></tr>
+</table></div>
+
+<h3>5.2 Block level targets</h3>
+<div class="table-wrap"><table>
+<tr><th>Block</th><th>Parameter</th><th>Target</th><th>Condition</th></tr>
+<tr><td rowspan="5">Sensor</td><td>&Delta;V<sub>BE</sub> slope</td><td>&asymp; 179 &micro;V/K &times; &alpha; (&alpha; &asymp; 8, to be fixed by the squad)</td><td>N = 8 ratio, T = 300 K reference</td></tr>
+<tr><td>V<sub>PTAT</sub> linearity</td><td>&le; 0.3 &deg;C equivalent</td><td>-40..125 &deg;C</td></tr>
+<tr><td>Startup</td><td>&le; 100 &micro;s to settle within 0.5 LSB</td><td>supply ramp 10 &micro;s</td></tr>
+<tr><td>Self-heating</td><td>&le; 0.1 &deg;C</td><td>bias current budget (&lt; 10 &micro;A per branch)</td></tr>
+<tr><td>Output drive</td><td>settles within 0.25 LSB in 1/4 sample window</td><td>ADC C-DAC load</td></tr>
+<tr><td rowspan="6">ADC</td><td>Resolution</td><td>10 bit (D1)</td><td>&mdash;</td></tr>
+<tr><td>DNL</td><td>&le; &plusmn;0.75 LSB</td><td>ramp, all temps</td></tr>
+<tr><td>INL</td><td>&le; &plusmn;1.0 LSB (end-point)</td><td>ramp, all temps</td></tr>
+<tr><td>Codes</td><td>no missing codes, monotonic</td><td>ramp &ge; 4 samples per code</td></tr>
+<tr><td>Offset</td><td>&le; &plusmn;2 LSB (trimmable)</td><td>-40, 27, 125 &deg;C</td></tr>
+<tr><td>Conversion</td><td>(bits + 2) clock cycles</td><td>12 cycles at 10 bit</td></tr>
+<tr><td rowspan="5">Digital</td><td>Protocol</td><td>AXI4-Lite handshakes, back-pressure safe, reset behavior</td><td>self-checking testbench</td></tr>
+<tr><td>Registers</td><td>match map in section 6.3 exactly</td><td>access test per register</td></tr>
+<tr><td>Conversion control</td><td>START, CONT, averaging 1/2/4/8/16</td><td>behavioral ADC model</td></tr>
+<tr><td>Alarm</td><td>HI/LO threshold compare on trimmed code, sticky flag, W1C</td><td>&mdash;</td></tr>
+<tr><td>Lint</td><td>Verilator <code>--lint-only -Wall</code> clean</td><td>&mdash;</td></tr>
+</table></div>
+
+<h3>5.3 Proposed error budget (untrimmed, in &deg;C)</h3>
+<div class="table-wrap"><table>
+<tr><th>Contributor</th><th class="num">Worst case</th><th>Owner</th><th>Notes</th></tr>
+<tr><td>Sensor core (BJT ratio, &beta;, series resistance, bias mismatch)</td><td class="num">2.0</td><td>sensor squad</td><td>dominant term; reduced by dynamic element matching later</td></tr>
+<tr><td>ADC (INL, DNL, offset gain)</td><td class="num">0.8</td><td>ADC squad</td><td>&asymp; 1 LSB at 0.8 &deg;C/LSB</td></tr>
+<tr><td>Reference / supply (ratiometric residual)</td><td class="num">0.3</td><td>sensor squad</td><td>cancels first order</td></tr>
+<tr><td>Quantization</td><td class="num">0.4</td><td>contract</td><td>&plusmn;0.5 LSB</td></tr>
+<tr class="hl"><td><strong>RSS total</strong></td><td class="num"><strong>2.2</strong></td><td>system-verifier</td><td>margin to &plusmn;3.0: 0.8 &deg;C. Linear sum is 3.5, which is why the spec states RSS.</td></tr>
+</table></div>
+<p class="meta">The system-verifier recomputes this table from measured numbers at the end, and reports where the real budget differs from this proposal.</p>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. Interface contract</h2>
+<p>This is the file every agent is checked against. Interface mismatch is the usual reason mixed-signal blocks fail at integration, so the contract is explicit and owned by you.</p>
+
+<h3>6.1 Sensor &rarr; ADC (analog)</h3>
+<div class="table-wrap"><table>
+<tr><th>Signal</th><th>Definition</th><th>Range (to be confirmed)</th><th>Owner of value</th></tr>
+<tr><td><code>V_REF</code></td><td>V<sub>BE</sub> + &alpha;&middot;&Delta;V<sub>BE</sub>; also ADC reference</td><td>&asymp; 1.1 &ndash; 1.25 V (D3)</td><td>sensor-designer</td></tr>
+<tr><td><code>V_PTAT</code></td><td>&alpha;&middot;&Delta;V<sub>BE</sub></td><td>&asymp; 0.28 &ndash; 0.48 &times; V<sub>REF</sub> over -40..125 &deg;C</td><td>sensor-designer</td></tr>
+<tr><td><code>sample</code></td><td>sample phase strobe</td><td>digital, from controller</td><td>axi-reg-designer</td></tr>
+<tr><td>Output impedance</td><td>such that settling &le; 0.25 LSB in 1/4 window</td><td>to be computed</td><td>both</td></tr>
+<tr><td>Input common-mode</td><td>ADC differential structure: single-ended probe converted at ADC input (ADC squad first task)</td><td>open</td><td>adc-designer</td></tr>
+</table></div>
+
+<h3>6.2 ADC &rarr; controller (mixed-signal boundary)</h3>
+<div class="table-wrap"><table>
+<tr><th>Signal</th><th>Definition</th></tr>
+<tr><td><code>code[9:0]</code></td><td>unsigned, MSB first on the course's <code>D0..</code> naming (confirm: course notebook has a suspected typo); <code>0 = 0 V</code>, <code>1023 = V_REF</code></td></tr>
+<tr><td><code>eoc</code></td><td>end of conversion strobe, code stable on rising edge</td></tr>
+<tr><td><code>start</code>, <code>clk_adc</code></td><td>from controller; <code>clk_adc</code> = <code>clk</code> / DIV (<code>DIV</code> in CTRL, default 100)</td></tr>
+<tr><td>Logic levels</td><td>1.2 V CMOS; Verilog-to-ngspice co-simulation with <code>ngspice vlnggen</code> (course flow)</td></tr>
+</table></div>
+
+<h3>6.3 AXI4-Lite register map (32-bit, byte address)</h3>
+<div class="table-wrap"><table>
+<tr><th>Offset</th><th>Name</th><th>Access</th><th>Bits</th><th>Description</th></tr>
+<tr><td><code>0x00</code></td><td>CTRL</td><td>RW</td><td>[0] EN, [1] START (self-clear), [2] CONT, [3] IRQ_EN, [7:4] AVG_LOG2 (0..4), [15:8] DIV</td><td>enable, one-shot, continuous, averaging 2<sup>n</sup>, clock divider</td></tr>
+<tr><td><code>0x04</code></td><td>STATUS</td><td>RO / W1C</td><td>[0] BUSY, [1] DONE (W1C), [2] OT_HI (W1C), [3] OT_LO (W1C)</td><td>conversion and alarm flags</td></tr>
+<tr><td><code>0x08</code></td><td>DATA</td><td>RO</td><td>[9:0] raw code, [25:16] averaged code (10.0)</td><td>latest result</td></tr>
+<tr><td><code>0x0C</code></td><td>TRIM</td><td>RW</td><td>[9:0] signed offset in LSB</td><td>one-point trim, applied before compare</td></tr>
+<tr><td><code>0x10</code></td><td>THRESH_HI</td><td>RW</td><td>[9:0] trimmed code</td><td>over-temp threshold</td></tr>
+<tr><td><code>0x14</code></td><td>THRESH_LO</td><td>RW</td><td>[9:0] trimmed code</td><td>under-temp threshold</td></tr>
+<tr><td><code>0x18</code></td><td>ID</td><td>RO</td><td>[31:0]</td><td>magic + version (<code>0x7E4D0001</code> assumed)</td></tr>
+</table></div>
+<p class="meta">Software converts code to &deg;C with <code>T = A&middot;code + B</code> (A, B documented after Phase 3). A hardware linear converter is not in v1 (decision D7).</p>
+
+<h3>6.4 Behavioral rules (digital)</h3>
+<ul>
+  <li>Reset (<code>rst_n</code> low) clears all registers except <code>ID</code>; sensor disabled until <code>EN</code>.</li>
+  <li><code>START</code> while <code>BUSY</code> is ignored; <code>DONE</code> sets when averaging completes; <code>IRQ = IRQ_EN &amp; (OT_HI | OT_LO)</code>.</li>
+  <li>All reads/writes complete with <code>OKAY</code>; unmapped addresses read 0, write ignored (v1).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. Loops, judges and stop rules</h2>
+
+<figure>
+<svg viewBox="0 0 1000 420" role="img" aria-label="Three nested loop levels">
+  <rect class="box cond" x="20" y="20" width="960" height="380" style="fill:#fff"/>
+  <text class="tb" x="40" y="48">LEVEL 3: system loop &mdash; /loop-system</text>
+  <text class="ts" x="40" y="66">system-verifier + system-reviewer. Judge: end-to-end sweep and error budget. Escalation to you.</text>
+
+  <rect class="box integ" x="60" y="90" width="880" height="270" style="fill:#fff"/>
+  <text class="tb" x="80" y="118">LEVEL 2: integration loops &mdash; /loop-integrate</text>
+  <text class="ts" x="80" y="136">integrator + unit-verifier + unit-reviewer. Judge: interface checks and cosim. May only file requests to blocks.</text>
+
+  <rect class="box build" x="100" y="160" width="250" height="170" style="fill:var(--c-build-bg)"/>
+  <text class="tb" x="115" y="188">LEVEL 1: sensor</text>
+  <text class="ts" x="115" y="208">designer / verifier / reviewer</text>
+  <text class="mono" x="115" y="228">judge_sensor.sh</text>
+  <text class="ts" x="115" y="248">rounds &le; 8</text>
+
+  <rect class="box build" x="375" y="160" width="250" height="170" style="fill:var(--c-build-bg)"/>
+  <text class="tb" x="390" y="188">LEVEL 1: ADC</text>
+  <text class="ts" x="390" y="208">designer / verifier / reviewer</text>
+  <text class="mono" x="390" y="228">judge_adc.sh</text>
+  <text class="ts" x="390" y="248">rounds &le; 8</text>
+
+  <rect class="box build" x="650" y="160" width="250" height="170" style="fill:var(--c-build-bg)"/>
+  <text class="tb" x="665" y="188">LEVEL 1: digital (AXI)</text>
+  <text class="ts" x="665" y="208">designer / verifier / reviewer</text>
+  <text class="mono" x="665" y="228">judge_axi.sh</text>
+  <text class="ts" x="665" y="248">rounds &le; 8</text>
+</svg>
+<figcaption>Figure 4. Three loop levels. A level-1 block must pass before it is integrated; a level-2 failure creates a request to a level-1 owner, never an edit by the integrator.</figcaption>
+</figure>
+
+<h3>7.1 Judges (the real checks)</h3>
+<div class="table-wrap"><table>
+<tr><th>Judge</th><th>Stages</th><th>Tools (installed at /opt/tools/analog)</th><th>Pass condition</th></tr>
+<tr><td><code>judge_sensor.sh</code></td><td>netlist &rarr; ngspice temp sweep -40..125, corners &rarr; metrics</td><td>xschem, ngspice (PSP103 / HBT OSDI), Python</td><td>V_PTAT slope and linearity, V_REF range, startup, supply sensitivity within 5.2</td></tr>
+<tr><td><code>judge_adc.sh</code></td><td>netlist &rarr; vlnggen <code>sar_logic.so</code> &rarr; ngspice ramp, 3 temps &rarr; <code>postprocess_adc.py</code></td><td>xschem, ngspice, Verilator (/opt/tools/bin)</td><td>DNL, INL, missing codes, monotonic (<em>script already exists and is tested</em>)</td></tr>
+<tr><td><code>judge_axi.sh</code></td><td>lint &rarr; self-checking testbench with behavioral ADC model &rarr; register access test</td><td>Verilator lint, Icarus Verilog 13</td><td>zero lint warnings, all assertions pass, map matches 6.3</td></tr>
+<tr><td><code>judge_int_sensor_adc.sh</code></td><td>sensor schematic + ADC schematic in one testbench, temp sweep</td><td>ngspice (Xyce for noise/Monte Carlo later)</td><td>code span, no clipping, settling, ratiometric check (supply &plusmn;5 % moves code &lt; 0.5 LSB)</td></tr>
+<tr><td><code>judge_int_axi_adc.sh</code></td><td>Verilog RTL + analog ADC via <code>d_cosim</code>, AXI write &rarr; convert &rarr; read</td><td>ngspice + Verilator, Icarus</td><td>DATA matches ADC output; THRESH/IRQ timing; DIV and AVG honored</td></tr>
+<tr><td><code>judge_system.sh</code></td><td>temperature sweep &rarr; AXI read &rarr; &deg;C by A,B &rarr; corners &rarr; budget</td><td>all of the above</td><td>5.1 table, 5.3 recomputed</td></tr>
+</table></div>
+<div class="callout warn"><p><strong>Judge rule:</strong> every judge is tested once on a known-good and a known-bad input before the loop uses it (the ADC judge already was, with a synthetic ideal ramp and a ramp with a missing code). A loop with an untrusted judge optimizes the judge, not the design.</p></div>
+
+<h3>7.2 Stop rules by level</h3>
+<div class="table-wrap"><table>
+<tr><th>Rule</th><th>Block loop</th><th>Integration loop</th><th>System loop</th></tr>
+<tr><td>Success</td><td>judge PASS + reviewer APPROVE</td><td>same</td><td>same, all rows of 5.1</td></tr>
+<tr><td>Round cap</td><td>8</td><td>6</td><td>4</td></tr>
+<tr><td>No progress</td><td>same first failure 3&times;</td><td>same 3&times;</td><td>same 2&times;</td></tr>
+<tr><td>Tooling error</td><td>same stage 2&times; &rarr; stop, report</td><td>same</td><td>same</td></tr>
+<tr><td>Escalate to you</td><td>reviewer returns ESCALATE, or a contract number must change</td><td>same, plus any block change request that alters a contract number</td><td>any budget row that cannot be met</td></tr>
+</table></div>
+
+<h3>7.3 Escalation protocol</h3>
+<p>A reviewer that finds a trade-off (not a bug) returns:</p>
+<pre><code>DECISION: ESCALATE
+QUESTION: &lt;one sentence&gt;
+OPTIONS:  A) &lt;option, cost&gt;   B) &lt;option, cost&gt;
+RECOMMEND: &lt;A|B and why&gt;
+BLOCKS: &lt;what cannot proceed until answered&gt;</code></pre>
+<p>The conductor appends that to <code>DECISIONS-NEEDED.md</code>, pauses only that branch (other squads continue), and asks you. Your answer is written back into <code>CONTRACT.md</code> by you or by the conductor on your instruction, never by a designer.</p>
+
+<h3>7.4 Reviewer reject list (what "gaming" means here)</h3>
+<ol>
+  <li>Judge script, <code>postprocess_adc.py</code>, <code>CONTRACT.md</code> thresholds or test temperatures changed after baseline.</li>
+  <li>Test sweep narrower than the contract (temperature, supply, corners, ramp span, conversions per code).</li>
+  <li>Ideal or behavioral element standing in for a real one without a PROGRESS.md note.</li>
+  <li>Any edit under <code>modules/**</code> or the PDK.</li>
+  <li>Bit order, full scale, threshold arguments changed without justification.</li>
+  <li>An integrator edited a block file, or a block designer edited an integration file.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. Human decisions I need from you</h2>
+<p>Each decision has options, my recommendation, and what it changes. Say <em>accept all</em>, or give me the letters you want to change.</p>
+
+<div class="dec">
+  <h3>D1. ADC resolution and what "resolution" means</h3>
+  <p>With ratiometric &mu; spanning about 0.2&ndash;0.27 of full scale over -40..125 &deg;C:</p>
+  <div class="table-wrap"><table>
+  <tr><th>Option</th><th>Single-conversion resolution</th><th>Cost</th></tr>
+  <tr><td>A) 10-bit SAR</td><td>&asymp; 0.6&ndash;0.8 &deg;C/LSB</td><td>course blocks reused with 2 more bits; INL at 10 bit is within reach of a unit-cap C-DAC</td></tr>
+  <tr><td>B) 12-bit SAR</td><td>&asymp; 0.15&ndash;0.2 &deg;C/LSB</td><td>4&times; capacitor area, tighter matching, likely needs calibration</td></tr>
+  <tr><td>C) 10-bit + offset subtraction (shift the window)</td><td>&asymp; 0.25&ndash;0.35 &deg;C/LSB</td><td>extra analog block in the sensor, more error terms</td></tr>
+  </table></div>
+  <div class="rec"><strong>Recommend A.</strong> Thermal throttling and monitoring rarely need better than 1 &deg;C steps. Sensor accuracy (about &plusmn;1.5 &deg;C trimmed) is the limiter anyway. Keep averaging in digital for noise. Revisit B/C only if you need sub-0.5 &deg;C steps.</div>
+</div>
+
+<div class="dec">
+  <h3>D2. Reference scheme</h3>
+  <p>A) ratiometric (ADC reference = V<sub>REF</sub> from the probe) &mdash; B) absolute (a separate bandgap + ADC against it).</p>
+  <div class="rec"><strong>Recommend A.</strong> Fewer blocks, supply and reference errors cancel to first order, and it is the classic approach for BJT sensors. Cost: part of the code range is unused (D1).</div>
+</div>
+
+<div class="dec">
+  <h3>D3. Supply domain for sensor and ADC</h3>
+  <p>V<sub>REF</sub> &asymp; 1.2 V needs headroom. A) everything on the 1.2 V core supply with a scaled V<sub>REF</sub> (about 0.6 V reference, &alpha; adjusted) &mdash; B) analog on the 3.3 V I/O supply, digital on 1.2 V (level-shifters at the boundary).</p>
+  <div class="rec"><strong>Recommend A for v1 if the sensor squad confirms the 0.6 V scaling works; fallback B.</strong> I have not confirmed which supply the course's bandgap uses; the sensor squad's first action is to read <code>modules/module_1_bandgap_reference</code> and report. This is the least certain item in the document.</div>
+</div>
+
+<div class="dec">
+  <h3>D4. Accuracy targets and trim</h3>
+  <p>&plusmn;3.0 &deg;C untrimmed and &plusmn;1.5 &deg;C with a one-point trim (register <code>TRIM</code>). Trim happens in software or at test; the macro stores nothing non-volatile.</p>
+  <div class="rec"><strong>Recommend as stated.</strong> If you need &plusmn;1 &deg;C untrimmed the sensor must add dynamic element matching and chopping; that is a different, larger project.</div>
+</div>
+
+<div class="dec">
+  <h3>D5. Sample rate and clocking</h3>
+  <p>100 S/s required; clock input 100 kHz&ndash;1 MHz after divider; conversion = bits + 2 cycles.</p>
+  <div class="rec"><strong>Recommend as stated.</strong> Slow clock makes settling and power trivial and lets the course's comparator and switches work unchanged.</div>
+</div>
+
+<div class="dec">
+  <h3>D6. Hardware over-temperature alarm</h3>
+  <p>Include <code>THRESH_HI</code>, <code>THRESH_LO</code>, sticky flags and an <code>irq</code> pin, or leave alarm to software polling.</p>
+  <div class="rec"><strong>Recommend include.</strong> About 40 lines of RTL; it is the feature a thermal sensor exists for.</div>
+</div>
+
+<div class="dec">
+  <h3>D7. Where code-to-&deg;C conversion lives</h3>
+  <p>A) software does <code>T = A&middot;code + B</code> &mdash; B) a hardware multiplier/adder returns Q8.2 &deg;C.</p>
+  <div class="rec"><strong>Recommend A for v1.</strong> Keeps the register block small and the contract simpler; B is a clean follow-up.</div>
+</div>
+
+<div class="dec">
+  <h3>D8. Number of probes</h3>
+  <p>A) one probe in v1 &mdash; B) N probes through an analog mux sharing one ADC (true "thermal probing" of several die sites).</p>
+  <div class="rec"><strong>Recommend A for the first loop run, with a parameter <code>N_PROBES</code> reserved in the register map (<code>CTRL</code> bits).</strong> Mux settling and charge injection add an integration problem we should not mix with learning the loop.</div>
+</div>
+
+<div class="dec">
+  <h3>D9. Verification depth for v1</h3>
+  <p>A) schematic-level with corners and temperature, behavioral digital &mdash; B) add layout, DRC/LVS, extraction, post-layout sim.</p>
+  <div class="rec"><strong>Recommend A for v1</strong>, with B as a second project reusing the same squads plus a <code>layout-designer</code> and a layout judge (the repo has DRC/LVS/kpex flows that already run). Layout adds days of agent time and its own loop.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. Repository layout and file ownership</h2>
+<pre><code>IHP-AnalogAcademy/
+  .claude/
+    agents/            9 agent files (section 4)
+    commands/          /loop-block /loop-integrate /loop-system /thermal-status
+  thermal_sensor/
+    CONTRACT.md        YOU own: spec, interface, register map, error budget
+    DECISIONS-NEEDED.md  reviewers' escalations, answered by you
+    REQUESTS.md        integrators -&gt; block owners
+    judges/            judge_*.sh, postprocess_adc.py, shared libs (agents may not edit)
+    blocks/
+      sensor/          sensor-designer: schematics, testbenches, PROGRESS.md
+      adc/             adc-designer:    schematics, sar_logic.v, testbench, PROGRESS.md
+      axi/             axi-reg-designer: RTL, tb, PROGRESS.md
+    integration/
+      sensor_adc/      sensor-adc-integrator
+      axi_adc/         axi-adc-integrator
+    system/            system test, final report
+  modules/             course material, READ-ONLY</code></pre>
+
+<div class="table-wrap"><table>
+<tr><th>Path</th><th>You</th><th>Designer</th><th>Integrator</th><th>Verifier</th><th>Reviewer</th></tr>
+<tr><td><code>CONTRACT.md</code></td><td>write</td><td>read</td><td>read</td><td>read</td><td>read</td></tr>
+<tr><td><code>judges/</code></td><td>write</td><td>read</td><td>read</td><td>run</td><td>read</td></tr>
+<tr><td><code>blocks/&lt;own&gt;/</code></td><td>read</td><td>write</td><td>read</td><td>run</td><td>read</td></tr>
+<tr><td><code>blocks/&lt;other&gt;/</code></td><td>read</td><td>read</td><td>read</td><td>run</td><td>read</td></tr>
+<tr><td><code>integration/&lt;own&gt;/</code></td><td>read</td><td>read</td><td>write</td><td>run</td><td>read</td></tr>
+<tr><td><code>modules/**</code>, PDK, <code>/opt/tools/**</code></td><td>read</td><td>read</td><td>read</td><td>read</td><td>read</td></tr>
+</table></div>
+<p>Parallel squads each work in their own git worktree and branch, merged by you or the conductor after the gate. The existing <code>projects/thermal_adc/</code> (8-bit example from earlier) will be folded into <code>blocks/adc/</code> and re-specified at 10 bit once D1 is decided.</p>
+
+<!-- ============================================================ -->
+<h2 id="s10">10. Build phases and gates</h2>
+
+<figure>
+<svg viewBox="0 0 1100 420" role="img" aria-label="Phases and gates">
+  <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="arrow"/></marker></defs>
+  <!-- phase 0 -->
+  <rect class="box human" x="20" y="150" width="170" height="120"/>
+  <text class="tb" x="105" y="178" text-anchor="middle">Phase 0</text>
+  <text class="ts" x="105" y="198" text-anchor="middle">contract + decisions</text>
+  <text class="ts" x="105" y="214" text-anchor="middle">D1&ndash;D9 answered</text>
+  <text class="ts" x="105" y="230" text-anchor="middle">judges validated</text>
+  <text class="ts" x="105" y="246" text-anchor="middle">(you + conductor)</text>
+
+  <path class="ln" marker-end="url(#a4)" d="M190 210H240"/>
+  <path d="M255 190l15 20l-15 20l-15-20z" class="box file" style="fill:var(--warn-bg);stroke:var(--warn)"/>
+  <text class="ts" x="255" y="258" text-anchor="middle">GATE 0</text>
+  <text class="ts" x="255" y="272" text-anchor="middle">you approve</text>
+
+  <!-- phase 1 -->
+  <path class="ln" d="M270 210H300"/>
+  <path class="ln" d="M300 80V340"/>
+  <path class="ln" marker-end="url(#a4)" d="M300 80H330"/>
+  <path class="ln" marker-end="url(#a4)" d="M300 210H330"/>
+  <path class="ln" marker-end="url(#a4)" d="M300 340H330"/>
+  <rect class="box build" x="330" y="45" width="190" height="70"/>
+  <text class="tb" x="425" y="74" text-anchor="middle">sensor squad loop</text>
+  <text class="ts" x="425" y="94" text-anchor="middle">/loop-block sensor</text>
+  <rect class="box build" x="330" y="175" width="190" height="70"/>
+  <text class="tb" x="425" y="204" text-anchor="middle">ADC squad loop</text>
+  <text class="ts" x="425" y="224" text-anchor="middle">/loop-block adc</text>
+  <rect class="box build" x="330" y="305" width="190" height="70"/>
+  <text class="tb" x="425" y="334" text-anchor="middle">digital squad loop</text>
+  <text class="ts" x="425" y="354" text-anchor="middle">/loop-block axi</text>
+  <text class="tb" x="425" y="28" text-anchor="middle">Phase 1 (parallel)</text>
+
+  <path class="ln" d="M520 80H550V340"/>
+  <path class="ln" d="M520 210H550"/>
+  <path class="ln" d="M520 340H550"/>
+  <path class="ln" marker-end="url(#a4)" d="M550 210H580"/>
+  <path d="M595 190l15 20l-15 20l-15-20z" class="box file" style="fill:var(--warn-bg);stroke:var(--warn)"/>
+  <text class="ts" x="595" y="258" text-anchor="middle">GATE 1</text>
+  <text class="ts" x="595" y="272" text-anchor="middle">3 blocks PASS</text>
+
+  <!-- phase 2 -->
+  <path class="ln" d="M610 210H640"/>
+  <path class="ln" d="M640 120V300"/>
+  <path class="ln" marker-end="url(#a4)" d="M640 120H670"/>
+  <path class="ln" marker-end="url(#a4)" d="M640 300H670"/>
+  <rect class="box integ" x="670" y="85" width="190" height="70"/>
+  <text class="tb" x="765" y="114" text-anchor="middle">sensor + ADC</text>
+  <text class="ts" x="765" y="134" text-anchor="middle">/loop-integrate sensor-adc</text>
+  <rect class="box integ" x="670" y="265" width="190" height="70"/>
+  <text class="tb" x="765" y="294" text-anchor="middle">AXI + ADC</text>
+  <text class="ts" x="765" y="314" text-anchor="middle">/loop-integrate axi-adc</text>
+  <text class="tb" x="765" y="68" text-anchor="middle">Phase 2 (parallel)</text>
+
+  <path class="ln" d="M860 120H890V300H860"/>
+  <path class="ln" marker-end="url(#a4)" d="M890 210H920"/>
+  <path d="M935 190l15 20l-15 20l-15-20z" class="box file" style="fill:var(--warn-bg);stroke:var(--warn)"/>
+  <text class="ts" x="935" y="258" text-anchor="middle">GATE 2</text>
+
+  <!-- phase 3 -->
+  <path class="ln" marker-end="url(#a4)" d="M950 210H975"/>
+  <rect class="box ver" x="975" y="150" width="110" height="120"/>
+  <text class="tb" x="1030" y="182" text-anchor="middle">Phase 3</text>
+  <text class="ts" x="1030" y="202" text-anchor="middle">/loop-system</text>
+  <text class="ts" x="1030" y="220" text-anchor="middle">final report</text>
+  <text class="ts" x="1030" y="238" text-anchor="middle">to you</text>
+</svg>
+<figcaption>Figure 5. Phases and gates. Diamonds are human gates; nothing crosses one without your approval. Phase 1 and 2 branches run in parallel worktrees.</figcaption>
+</figure>
+
+<div class="table-wrap"><table>
+<tr><th>Phase</th><th>Deliverable</th><th>Exit condition</th></tr>
+<tr><td>0</td><td><code>CONTRACT.md</code> final, judges built and self-tested</td><td>you sign; each judge fails on a known-bad input and passes a known-good one</td></tr>
+<tr><td>1</td><td>sensor, ADC, AXI blocks, each in its own loop</td><td>each block: judge PASS + reviewer APPROVE; open decisions answered</td></tr>
+<tr><td>2</td><td>sensor+ADC and AXI+ADC integration benches</td><td>both integrator loops PASS + APPROVE; no unresolved requests</td></tr>
+<tr><td>3</td><td>system sweep, corners, error budget, final report</td><td>5.1 met or an explicit list of misses with your decision</td></tr>
+</table></div>
+
+<!-- ============================================================ -->
+<h2 id="s11">11. How it runs in Claude Code (and limits)</h2>
+<ul>
+  <li><strong>Agent files</strong> are Markdown with frontmatter (<code>name</code>, <code>description</code>, <code>tools</code>, <code>model</code>) in <code>.claude/agents/</code>; the body is the system prompt. A new session picks them up.</li>
+  <li><strong>The conductor is a slash command</strong> in <code>.claude/commands/</code>. It runs in your main session and calls agents by name.</li>
+  <li><strong>Limit: subagents cannot call other subagents</strong> (as far as I know in the current version). So squads are not "lead agents that manage workers"; the conductor drives every squad. The hierarchy in the chart is logical, not nested processes.</li>
+  <li><strong>Parallelism:</strong> the conductor can start the three Phase-1 builders in the same step, each in its own worktree. Verifiers then run in parallel as well.</li>
+  <li><strong>Unattended mode:</strong> a shell script can run one <code>claude -p "/loop-block adc"</code> per squad (process-level hierarchy), collect each squad's verdict file, then start integration. Use this for overnight runs; the stop rules live in code.</li>
+  <li><strong>Hard guarantees:</strong> a Stop hook can refuse to end a session while a judge fails; a PreToolUse hook can block edits outside an agent's scope. I would add these after the first manual runs.</li>
+  <li><strong>Cost control:</strong> round caps (section 7.2) bound the worst case; cheap models (haiku) run the verifier; the strongest model is used only for review.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s12">12. Risks and open items</h2>
+<div class="table-wrap"><table>
+<tr><th>Item</th><th>Risk</th><th>Mitigation</th></tr>
+<tr><td>HBT temperature model</td><td>PSP103/HBT models at -40/125 &deg;C unverified for this PDK version in the sensor use</td><td>sensor squad's first judge run compares &Delta;V<sub>BE</sub> slope against kT/q&middot;ln N; mismatch is escalated</td></tr>
+<tr><td>Supply headroom (D3)</td><td>V<sub>REF</sub> &asymp; 1.2 V does not fit a 1.2 V rail</td><td>scaled reference or 3.3 V analog supply; decide before Phase 1</td></tr>
+<tr><td>ADC bit order</td><td>course notebook lists bits as <code>D0..D6,D0</code>; README says D0 is MSB</td><td>judge takes <code>--bits</code>; confirmed with a known code in Phase 0</td></tr>
+<tr><td>Co-simulation</td><td>ngspice <code>d_cosim</code> needs Verilator-built <code>.so</code>; slow for long ramps</td><td>judge builds <code>.so</code>; keep ramp &ge; 4 samples/code, not more</td></tr>
+<tr><td>Simulation time</td><td>10-bit ramp with 4 samples/code is ~4096 conversions &times; 12 cycles; transistor-level may take hours</td><td>use a ramp with fewer points for loop rounds, full ramp only at the gate</td></tr>
+<tr><td>Noise, mismatch, Monte Carlo</td><td>not in v1 loop; accuracy claims are nominal-plus-corners</td><td>listed in the final report as not verified</td></tr>
+<tr><td>Missing tools</td><td>no confirmed cocotb; layout/PEX flows exist but not in v1 scope</td><td>Icarus self-checking testbenches; layout is a later project (D9)</td></tr>
+<tr><td>Agent drift</td><td>builder weakens judge or spec</td><td>read-only paths, reviewer reject list, optional PreToolUse hook</td></tr>
+</table></div>
+
+<!-- ============================================================ -->
+<h2 id="s13">13. Review checklist and next steps</h2>
+<ul class="check">
+  <li>Organization chart (section 3) is what I want, or here are the changes: ______</li>
+  <li>Agent list and tool limits (section 4) are acceptable.</li>
+  <li>Spec numbers (section 5) are acceptable, or edits: ______</li>
+  <li>Interface contract and register map (section 6) are acceptable, or edits: ______</li>
+  <li>Decisions D1&ndash;D9 answered (accept recommendations or letters to change).</li>
+  <li>Phase gates and stop rules (sections 7, 10) are acceptable.</li>
+  <li>Repository layout and ownership (section 9) is acceptable.</li>
+</ul>
+
+<h3>What happens after you approve</h3>
+<p>I create files <strong>one at a time</strong>, each with a short preview for your OK, in this order:</p>
+<ol>
+  <li><code>thermal_sensor/CONTRACT.md</code> (from sections 5&ndash;6 with your decisions)</li>
+  <li>judges and their self-tests: <code>judge_adc.sh</code> first (already exists in <code>projects/thermal_adc/</code>), then axi, then sensor</li>
+  <li><code>unit-verifier</code>, <code>unit-reviewer</code>, then <code>adc-designer</code> (reuse of the existing example agents)</li>
+  <li><code>/loop-block adc</code> and a first supervised run, before any other squad exists</li>
+  <li>the remaining designers, integrators, system level, in the order of the phases</li>
+</ol>
+<p class="meta">Existing files kept for now: <code>.claude/agents/adc-*.md</code>, <code>.claude/commands/adc-loop.md</code>, <code>projects/thermal_adc/*</code> (the earlier 8-bit example; they will be generalized in step 3). The earlier Markdown tutorial <code>docs/loop-agents-orchestrator-pattern.md</code> is replaced by this page.</p>
+
+</div>
+</body>
+</html>
