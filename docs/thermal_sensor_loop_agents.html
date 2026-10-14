@@ -97,7 +97,7 @@ svg .arrow{fill:var(--ink-soft)}
 <body>
 <div class="wrap">
 
-<p class="meta">IHP-AnalogAcademy &middot; review draft v2 &middot; 2026-10-13 &middot; v2 adds the Croc SoC as the integration target &middot; status: <strong>awaiting your review. No agents for this design exist yet.</strong></p>
+<p class="meta">IHP-AnalogAcademy &middot; review draft v3 &middot; 2026-10-14 &middot; v2 added the Croc SoC target, v3 fixes V<sub>REF</sub> = 1.2 V and puts small area and low power first &middot; status: <strong>awaiting your review. No agents for this design exist yet.</strong></p>
 <h1>On-die thermal sensor: a loop-agent orchestrator tutorial</h1>
 <p class="sub">A worked example of loop engineering with Claude Code: an OBI-attached temperature sensor for the Croc SoC (probe + ADC + register block) built by a hierarchy of builder / verifier / reviewer agents. Read it, change anything, then approve it section by section. I will create the agent files one at a time only after you sign off.</p>
 
@@ -130,6 +130,17 @@ svg .arrow{fill:var(--ink-soft)}
 <div class="callout warn">
   <p><strong>Confidence labels.</strong> Numbers marked <span class="assume">(assumed)</span> are my proposals from general knowledge of on-die thermal sensors, not measured on this PDK and not copied from a datasheet. The sensor and ADC squads will confirm or push back on them in Phase 1; any change comes back to you.</p>
 </div>
+<div class="callout ok">
+  <p><strong>v3: design priorities (in this order) and the reference voltage.</strong></p>
+  <ol>
+    <li><strong>Small footprint</strong> (macro area): first tie-breaker.</li>
+    <li><strong>Low power</strong> (average power, duty-cycled): second.</li>
+    <li>Accuracy: &plusmn;3 &deg;C untrimmed / &plusmn;1.5 &deg;C trimmed. A requirement, not something to over-achieve.</li>
+    <li><strong>Sampling speed: last.</strong> A die temperature changes over milliseconds or longer, so 10 S/s is plenty.</li>
+  </ol>
+  <p><strong>V<sub>REF</sub> = 1.2 V.</strong> The ADC reference and full scale is the 1.2 V core supply (VDD) itself. The probe no longer generates a reference. It outputs two voltages, <code>V_BE</code> and <code>V_PTAT</code>, both inside 0&ndash;1.2 V; the ADC converts each one and the ratio is computed digitally, so VDD cancels to first order. No scaled 0.6 V reference, no level shifter. Trade-off: two conversions per reading, and fast noise on VDD between the two conversions does not cancel (see risks).</p>
+  <p>Where a rule below conflicts with a priority, the priority wins and the item goes to <code>DECISIONS-NEEDED.md</code>. Numbers marked <span class="assume">(assumed)</span> are still my proposals.</p>
+</div>
 <div class="callout warn">
   <p><strong>What changed in v2: the target is the Croc SoC (<code>/home/attapon/cnx-semi/croc</code>).</strong> I read its RTL, user domain, flow scripts and docs. Five findings change this design:</p>
   <ol>
@@ -142,7 +153,7 @@ svg .arrow{fill:var(--ink-soft)}
   </ol>
 </div>
 <div class="callout flag">
-  <p><strong>One correction to what I said in chat.</strong> I said a 10-bit ADC gives about 0.25&nbsp;&deg;C per LSB. That assumed the whole code range maps to temperature. With the ratiometric scheme recommended here, -40..125&nbsp;&deg;C only occupies about 20&ndash;27&nbsp;% of the code range, so a 10-bit ADC gives about <strong>0.6&ndash;0.8&nbsp;&deg;C per LSB</strong> and a 12-bit ADC about 0.15&ndash;0.2&nbsp;&deg;C. See decision D1.</p>
+  <p><strong>One correction to what I said in chat.</strong> I said a 10-bit ADC gives about 0.25&nbsp;&deg;C per LSB. That assumed the whole code range maps to temperature. With the ratio scheme recommended here, -40..125&nbsp;&deg;C only occupies about 20&ndash;27&nbsp;% of the code range, so a 10-bit ADC gives about <strong>0.6&ndash;0.8&nbsp;&deg;C per LSB</strong> and a 12-bit ADC about 0.15&ndash;0.2&nbsp;&deg;C. See decision D1.</p>
 </div>
 
 <!-- ============================================================ -->
@@ -159,15 +170,15 @@ svg .arrow{fill:var(--ink-soft)}
 
   <rect class="box build" x="30" y="90" width="190" height="110"/>
   <text class="tb" x="125" y="122" text-anchor="middle">Thermal probe</text>
-  <text class="ts" x="125" y="142" text-anchor="middle">BJT pair N=8 (npn13G2 or pnpMPA, D11)</text>
+  <text class="ts" x="125" y="142" text-anchor="middle">BJT pair, N=8 (D11)</text>
   <text class="ts" x="125" y="158" text-anchor="middle">&Delta;V<tspan baseline-shift="sub" font-size="9">BE</tspan> (PTAT) and V<tspan baseline-shift="sub" font-size="9">BE</tspan> (CTAT)</text>
   <text class="ts" x="125" y="176" text-anchor="middle">bias + startup</text>
 
   <rect class="box build" x="320" y="90" width="230" height="110"/>
-  <text class="tb" x="435" y="122" text-anchor="middle">SAR ADC (ratiometric)</text>
+  <text class="tb" x="435" y="122" text-anchor="middle">SAR ADC (V<tspan baseline-shift="sub" font-size="9">REF</tspan> = VDD = 1.2 V)</text>
   <text class="ts" x="435" y="142" text-anchor="middle">N bits (D1), C-DAC, comparator,</text>
   <text class="ts" x="435" y="158" text-anchor="middle">bootstrapped switch, SAR logic</text>
-  <text class="ts" x="435" y="176" text-anchor="middle">reference = V<tspan baseline-shift="sub" font-size="9">REF</tspan> from the probe</text>
+  <text class="ts" x="435" y="176" text-anchor="middle">ratio of 2 conversions, in digital</text>
 
   <rect class="box build" x="620" y="90" width="210" height="110"/>
   <text class="tb" x="725" y="122" text-anchor="middle">Sensor controller</text>
@@ -186,7 +197,7 @@ svg .arrow{fill:var(--ink-soft)}
   <path class="ln" marker-end="url(#a1)" d="M220 130H318"/>
   <text class="mono" x="269" y="122" text-anchor="middle">V_PTAT</text>
   <path class="ln" marker-end="url(#a1)" d="M220 165H318"/>
-  <text class="mono" x="269" y="182" text-anchor="middle">V_REF</text>
+  <text class="mono" x="269" y="182" text-anchor="middle">V_BE</text>
   <path class="ln" marker-end="url(#a1)" d="M550 145H618"/>
   <text class="mono" x="584" y="136" text-anchor="middle">code</text>
   <path class="ln" marker-end="url(#a1)" d="M830 145H878"/>
@@ -199,11 +210,12 @@ svg .arrow{fill:var(--ink-soft)}
   <path class="ln dash" marker-end="url(#a1)" d="M660 200V222H435V202"/>
   <text class="ts" x="548" y="240" text-anchor="middle">start / sample strobes, clk_adc</text>
 </svg>
-<figcaption>Figure 1. Signal chain (v2: OBI bus, BJT probe). Green = blocks designed by a squad. The probe feeds the ADC two voltages and the ADC uses V<sub>REF</sub> as its own reference, so the code depends on a ratio and not on absolute voltage.</figcaption>
+<figcaption>Figure 1. Signal chain (v2: OBI bus, BJT probe). Green = blocks designed by a squad. The probe feeds the ADC two voltages, V_PTAT and V_BE, one after the other. The ADC reference is VDD = 1.2 V; the controller divides the two codes, so the result depends on a ratio and not on VDD.</figcaption>
 </figure>
 
-<h3>Why ratiometric</h3>
-<p>The probe produces <code>V_PTAT = &alpha;&middot;&Delta;V<sub>BE</sub></code> (proportional to absolute temperature) and <code>V_REF = V<sub>BE</sub> + &alpha;&middot;&Delta;V<sub>BE</sub></code> (about a bandgap voltage). The ADC converts <code>&mu; = V_PTAT / V_REF</code>. Because <code>V_REF</code> is also the ADC reference, absolute reference accuracy cancels and temperature is a linear function of the code: <code>T[K] &asymp; A&middot;&mu;</code>. The price is that only part of the code range is used (section 8, D1).</p>
+<h3>Why a ratio, and why V<sub>REF</sub> = 1.2 V</h3>
+<p>The probe produces <code>V_PTAT = &alpha;&middot;&Delta;V<sub>BE</sub></code> (proportional to absolute temperature) and <code>V_BE</code> (falls with temperature). The ADC measures each against its reference V<sub>REF</sub> = VDD = 1.2 V and returns codes <code>P = V_PTAT/VDD</code> and <code>B = V_BE/VDD</code> (times 1023). The controller forms <code>&mu; = P / (B + P)</code>: VDD cancels, and temperature is linear in &mu;: <code>T[K] &asymp; A&middot;&mu;</code>. Using VDD as the reference removes the reference generator and its buffer, which is the smallest and lowest-power choice. The price: two conversions per reading and only about 25 % of the code range is used (section 8, D1).</p>
+<p class="meta">Headroom check: &Delta;V<sub>BE</sub> for N = 8 is about 54 mV at 27 &deg;C (kT/q&middot;ln 8, from physics, not measured here). With &alpha; &asymp; 8&ndash;12, V_PTAT is about 0.3&ndash;0.9 V and V_BE about 0.5&ndash;0.8 V across -40..125 &deg;C, so both should fit under 1.2 V. The sensor squad confirms this in simulation.</p>
 
 
 <h3 id="s1b">1.1 Target SoC: Croc (what I found)</h3>
@@ -264,7 +276,7 @@ svg .arrow{fill:var(--ink-soft)}
 
   <rect class="box integ" x="740" y="292" width="400" height="120"/>
   <text class="tb" x="940" y="318" text-anchor="middle">thermal_macro (hard macro, analog)</text>
-  <text class="ts" x="940" y="338" text-anchor="middle">BJT probe + ratiometric SAR ADC</text>
+  <text class="ts" x="940" y="338" text-anchor="middle">BJT probe + SAR ADC (ref = VDD 1.2 V)</text>
   <text class="ts" x="940" y="356" text-anchor="middle">deliverables: LEF, GDS, SPICE for LVS, Verilog blackbox + behavioral model</text>
   <text class="ts" x="940" y="374" text-anchor="middle">supplies: VDD, VSS (core), local decoupling inside macro</text>
   <text class="ts" x="940" y="392" text-anchor="middle">digital pins only: no analog pad in v1</text>
@@ -362,7 +374,7 @@ svg .arrow{fill:var(--ink-soft)}
   <rect class="box build" x="18" y="292" width="186" height="74"/>
   <text class="tb" x="111" y="316" text-anchor="middle">sensor-designer</text>
   <text class="ts" x="111" y="334" text-anchor="middle">BJT &Delta;V<tspan baseline-shift="sub" font-size="8">BE</tspan> core, bias,</text>
-  <text class="ts" x="111" y="349" text-anchor="middle">startup, V_PTAT / V_REF</text>
+  <text class="ts" x="111" y="349" text-anchor="middle">startup, V_PTAT / V_BE</text>
   <rect class="box ver" x="18" y="400" width="186" height="62"/>
   <text class="tb" x="111" y="424" text-anchor="middle">unit-verifier</text>
   <text class="ts" x="111" y="442" text-anchor="middle">judge_sensor.sh</text>
@@ -528,15 +540,15 @@ svg .arrow{fill:var(--ink-soft)}
 <tr><td>Accuracy, untrimmed</td><td>&plusmn;3.0 &deg;C (RSS of budget)</td><td>TT/FF/SS, 1.2 V &plusmn;5 %</td><td>system-verifier</td></tr>
 <tr><td>Accuracy, one-point trim</td><td>&plusmn;1.5 &deg;C</td><td>trim at 27 &deg;C, register <code>TRIM</code></td><td>system-verifier</td></tr>
 <tr><td>Resolution (single conversion)</td><td>&le; 0.8 &deg;C/LSB (10-bit) &mdash; see D1</td><td>code step over the range</td><td>system-verifier</td></tr>
-<tr><td>Sample rate</td><td>&ge; 100 S/s, conversion &le; 10 ms</td><td>clock 100 kHz &ndash; 1 MHz</td><td>integration cosim</td></tr>
-<tr><td>Supply sensitivity</td><td>&le; 0.2 &deg;C per 5 % supply</td><td>ratiometric benefit</td><td>sensor + system</td></tr>
-<tr><td>Power</td><td>&le; 50 &micro;W total (report only in v1)</td><td>27 &deg;C, continuous</td><td>reported</td></tr>
+<tr><td>Sample rate (lowest priority)</td><td>&ge; 10 S/s; one reading = 2 conversions &le; 100 ms; slower is acceptable</td><td>clock 10 &ndash; 100 kHz</td><td>integration cosim</td></tr>
+<tr><td>Supply sensitivity</td><td>&le; 0.2 &deg;C per 5 % <em>slow</em> VDD change (fast noise: see risks)</td><td>digital ratio of two conversions</td><td>sensor + system</td></tr>
+<tr><td>Power (priority 2)</td><td>average &le; 2 &micro;W at 10 S/s with bias power-gated between readings; &le; 10 &micro;W while converting <span class="assume">(assumed)</span></td><td>27 &deg;C and 125 &deg;C (leakage), VDD 1.2 V</td><td>sensor judge + system-verifier: <strong>pass/fail</strong></td></tr>
 <tr><td>Over-temp alarm</td><td>IRQ within 1 conversion + 2 clk of crossing</td><td><code>THRESH_HI</code></td><td>integration</td></tr>
 <tr><td>Bus</td><td>OBI v1.6 subordinate, 32-bit, one outstanding transaction, <code>err=0</code> for mapped addresses; slot <code>0x2000_1000</code> (4 KB)</td><td>Croc <code>UserDesign</code> slot</td><td>OBI squad</td></tr>
 <tr><td>Croc simulation (L1)</td><td>test program reads a sensor code over OBI and prints PASS on UART</td><td>Verilator, behavioral macro model</td><td>croc-integrator</td></tr>
 <tr><td>Croc synthesis (L2)</td><td>0 unexpected blackboxes; only <code>thermal_macro</code> is a blackbox; no new timing violation vs <code>constraints.sdc</code></td><td>Yosys + OpenROAD floorplan</td><td>croc-integrator</td></tr>
 <tr><td>Croc GDS (L3)</td><td>full chip routed, GDS sealed and filled, DRC clean, LVS <code>PASSED</code> with the macro</td><td>Croc flow, minimal DRC while iterating, full DRC at the end</td><td>croc-integrator</td></tr>
-<tr><td>Macro area</td><td>&le; 0.1 mm&sup2; (about 2.7 % of the die) <span class="assume">(assumed)</span></td><td>from macro LEF</td><td>layout-designer</td></tr>
+<tr><td>Macro area (priority 1)</td><td>&le; 0.03 mm&sup2; (about 0.8 % of the die); report area per block; any change that adds area needs a stated reason <span class="assume">(assumed)</span></td><td>from macro LEF</td><td>layout-designer</td></tr>
 </table></div>
 
 <h3>5.2 Block level targets</h3>
@@ -545,14 +557,14 @@ svg .arrow{fill:var(--ink-soft)}
 <tr><td rowspan="5">Sensor</td><td>&Delta;V<sub>BE</sub> slope</td><td>&asymp; 179 &micro;V/K &times; &alpha; (&alpha; &asymp; 8, to be fixed by the squad)</td><td>N = 8 ratio, T = 300 K reference</td></tr>
 <tr><td>V<sub>PTAT</sub> linearity</td><td>&le; 0.3 &deg;C equivalent</td><td>-40..125 &deg;C</td></tr>
 <tr><td>Startup</td><td>&le; 100 &micro;s to settle within 0.5 LSB</td><td>supply ramp 10 &micro;s</td></tr>
-<tr><td>Self-heating</td><td>&le; 0.1 &deg;C</td><td>bias current budget (&lt; 10 &micro;A per branch)</td></tr>
+<tr><td>Self-heating</td><td>&le; 0.1 &deg;C</td><td>bias current &le; 1 &micro;A per branch (power priority)</td></tr>
 <tr><td>Output drive</td><td>settles within 0.25 LSB in 1/4 sample window</td><td>ADC C-DAC load</td></tr>
 <tr><td rowspan="7">ADC</td><td>Resolution</td><td>10 bit (D1)</td><td>&mdash;</td></tr>
 <tr><td>DNL</td><td>&le; &plusmn;0.75 LSB</td><td>ramp, all temps</td></tr>
 <tr><td>INL</td><td>&le; &plusmn;1.0 LSB (end-point)</td><td>ramp, all temps</td></tr>
 <tr><td>Codes</td><td>no missing codes, monotonic</td><td>ramp &ge; 4 samples per code</td></tr>
 <tr><td>Offset</td><td>&le; &plusmn;2 LSB (trimmable)</td><td>-40, 27, 125 &deg;C</td></tr>
-<tr><td>Conversion</td><td>(bits + 2) clock cycles</td><td>12 cycles at 10 bit</td></tr>
+<tr><td>Conversion</td><td>(bits + 2) clock cycles; ADC and bias powered only during a reading</td><td>12 cycles at 10 bit; reference = VDD 1.2 V</td></tr>
 <tr><td>Capacitors</td><td>MOM (<code>cap_cmomi</code>) or MOS caps; no <code>cap_cmim</code> on sg13cmos5l</td><td>D11; course C-DAC uses <code>cap_cmim</code></td></tr>
 <tr><td rowspan="5">Digital</td><td>Protocol</td><td>OBI handshake (req/gnt, rvalid), back-pressure safe, reset behavior, 4 KB slot decode</td><td>self-checking testbench</td></tr>
 <tr><td>Registers</td><td>match map in section 6.3 exactly</td><td>access test per register</td></tr>
@@ -566,7 +578,7 @@ svg .arrow{fill:var(--ink-soft)}
 <tr><th>Contributor</th><th class="num">Worst case</th><th>Owner</th><th>Notes</th></tr>
 <tr><td>Sensor core (BJT ratio, &beta;, series resistance, bias mismatch)</td><td class="num">2.0</td><td>sensor squad</td><td>dominant term; reduced by dynamic element matching later</td></tr>
 <tr><td>ADC (INL, DNL, offset gain)</td><td class="num">0.8</td><td>ADC squad</td><td>&asymp; 1 LSB at 0.8 &deg;C/LSB</td></tr>
-<tr><td>Reference / supply (ratiometric residual)</td><td class="num">0.3</td><td>sensor squad</td><td>cancels first order</td></tr>
+<tr><td>Reference / supply (digital-ratio residual)</td><td class="num">0.3</td><td>sensor squad</td><td>cancels first order</td></tr>
 <tr><td>Quantization</td><td class="num">0.4</td><td>contract</td><td>&plusmn;0.5 LSB</td></tr>
 <tr class="hl"><td><strong>RSS total</strong></td><td class="num"><strong>2.2</strong></td><td>system-verifier</td><td>margin to &plusmn;3.0: 0.8 &deg;C. Linear sum is 3.5, which is why the spec states RSS.</td></tr>
 </table></div>
@@ -579,8 +591,10 @@ svg .arrow{fill:var(--ink-soft)}
 <h3>6.1 Sensor &rarr; ADC (analog)</h3>
 <div class="table-wrap"><table>
 <tr><th>Signal</th><th>Definition</th><th>Range (to be confirmed)</th><th>Owner of value</th></tr>
-<tr><td><code>V_REF</code></td><td>V<sub>BE</sub> + &alpha;&middot;&Delta;V<sub>BE</sub>; also ADC reference</td><td>&asymp; 1.1 &ndash; 1.25 V (D3)</td><td>sensor-designer</td></tr>
-<tr><td><code>V_PTAT</code></td><td>&alpha;&middot;&Delta;V<sub>BE</sub></td><td>&asymp; 0.28 &ndash; 0.48 &times; V<sub>REF</sub> over -40..125 &deg;C</td><td>sensor-designer</td></tr>
+<tr><td><code>V_REF</code></td><td>ADC reference and full scale = VDD (core rail), <strong>1.2 V nominal</strong>; not generated by the probe</td><td>1.2 V &plusmn; 5 %</td><td>contract (you)</td></tr>
+<tr><td><code>V_BE</code></td><td>base-emitter voltage of the probe BJT at the unit bias current</td><td>&asymp; 0.5 &ndash; 0.8 V over -40..125 &deg;C (to confirm)</td><td>sensor-designer</td></tr>
+<tr><td><code>V_PTAT</code></td><td>&alpha;&middot;&Delta;V<sub>BE</sub>; &alpha; chosen so it stays &le; 0.9 V at 125 &deg;C</td><td>&asymp; 0.3 &ndash; 0.9 V (to confirm)</td><td>sensor-designer</td></tr>
+<tr><td><code>sel</code>, <code>pwr_en</code></td><td><code>sel</code> picks V_PTAT or V_BE for the ADC input; <code>pwr_en</code> gates bias and ADC</td><td>digital, from controller</td><td>obi-reg-designer</td></tr>
 <tr><td><code>sample</code></td><td>sample phase strobe</td><td>digital, from controller</td><td>obi-reg-designer</td></tr>
 <tr><td>Output impedance</td><td>such that settling &le; 0.25 LSB in 1/4 window</td><td>to be computed</td><td>both</td></tr>
 <tr><td>Input common-mode</td><td>ADC differential structure: single-ended probe converted at ADC input (ADC squad first task)</td><td>open</td><td>adc-designer</td></tr>
@@ -589,25 +603,26 @@ svg .arrow{fill:var(--ink-soft)}
 <h3>6.2 ADC &rarr; controller (mixed-signal boundary)</h3>
 <div class="table-wrap"><table>
 <tr><th>Signal</th><th>Definition</th></tr>
-<tr><td><code>code[9:0]</code></td><td>unsigned, MSB first on the course's <code>D0..</code> naming (confirm: course notebook has a suspected typo); <code>0 = 0 V</code>, <code>1023 = V_REF</code></td></tr>
+<tr><td><code>code[9:0]</code></td><td>unsigned, MSB first on the course's <code>D0..</code> naming (confirm: course notebook has a suspected typo); <code>0 = 0 V</code>, <code>1023 = V_REF = 1.2 V</code></td></tr>
 <tr><td><code>eoc</code></td><td>end of conversion strobe, code stable on rising edge</td></tr>
-<tr><td><code>start</code>, <code>clk_adc</code></td><td>from controller; <code>clk_adc</code> = <code>clk</code> / DIV (<code>DIV</code> in CTRL, default 100)</td></tr>
-<tr><td>Macro supplies and pins</td><td><code>VDD</code>, <code>VSS</code> (Croc core rails, Metal4/TopMetal1 pins); digital pins <code>start, clk_adc, eoc, code[9:0], sample</code> on one macro edge facing <code>thermal_sensor_top</code>; no analog pins (D12)</td></tr>
+<tr><td><code>start</code>, <code>clk_adc</code></td><td>from controller; <code>clk_adc</code> = <code>clk</code> / DIV (<code>DIV</code> in CTRL, default 1000, i.e. 100 kHz at 100 MHz)</td></tr>
+<tr><td>Macro supplies and pins</td><td><code>VDD</code>, <code>VSS</code> (Croc core rails, Metal4/TopMetal1 pins); digital pins <code>start, clk_adc, eoc, code[9:0], sample, sel, pwr_en</code> on one macro edge facing <code>thermal_sensor_top</code>; no analog pins (D12)</td></tr>
 <tr><td>Logic levels</td><td>1.2 V CMOS; Verilog-to-ngspice co-simulation with <code>ngspice vlnggen</code> (course flow)</td></tr>
 </table></div>
 
 <h3>6.3 OBI register map (32-bit, byte offset from <code>0x2000_1000</code>)</h3>
 <div class="table-wrap"><table>
 <tr><th>Offset</th><th>Name</th><th>Access</th><th>Bits</th><th>Description</th></tr>
-<tr><td><code>0x00</code></td><td>CTRL</td><td>RW</td><td>[0] EN, [1] START (self-clear), [2] CONT, [3] IRQ_EN, [7:4] AVG_LOG2 (0..4), [23:8] DIV</td><td>enable, one-shot, continuous, averaging 2<sup>n</sup>, clock divider</td></tr>
+<tr><td><code>0x00</code></td><td>CTRL</td><td>RW</td><td>[0] EN, [1] START (self-clear), [2] CONT, [3] IRQ_EN, [7:4] AVG_LOG2 (0..4), [23:8] DIV</td><td>enable, one-shot reading (P then B), continuous (off by default, costs power), averaging 2<sup>n</sup>, clock divider. <code>EN=0</code> powers the macro down.</td></tr>
 <tr><td><code>0x04</code></td><td>STATUS</td><td>RO / W1C</td><td>[0] BUSY, [1] DONE (W1C), [2] OT_HI (W1C), [3] OT_LO (W1C)</td><td>conversion and alarm flags</td></tr>
-<tr><td><code>0x08</code></td><td>DATA</td><td>RO</td><td>[9:0] raw code, [25:16] averaged code (10.0)</td><td>latest result</td></tr>
-<tr><td><code>0x0C</code></td><td>TRIM</td><td>RW</td><td>[9:0] signed offset in LSB</td><td>one-point trim, applied before compare</td></tr>
-<tr><td><code>0x10</code></td><td>THRESH_HI</td><td>RW</td><td>[9:0] trimmed code</td><td>over-temp threshold</td></tr>
-<tr><td><code>0x14</code></td><td>THRESH_LO</td><td>RW</td><td>[9:0] trimmed code</td><td>under-temp threshold</td></tr>
+<tr><td><code>0x08</code></td><td>DATA_P</td><td>RO</td><td>[9:0] raw code of V_PTAT, [25:16] averaged</td><td>latest P</td></tr>
+<tr><td><code>0x0C</code></td><td>TRIM</td><td>RW</td><td>[9:0] signed offset in LSB of &mu; (Q0.10)</td><td>one-point trim, applied before compare</td></tr>
+<tr><td><code>0x10</code></td><td>THRESH_HI</td><td>RW</td><td>[9:0] &mu; threshold (Q0.10)</td><td>over-temp threshold</td></tr>
+<tr><td><code>0x14</code></td><td>THRESH_LO</td><td>RW</td><td>[9:0] &mu; threshold (Q0.10)</td><td>under-temp threshold</td></tr>
+<tr><td><code>0x1C</code></td><td>DATA_B</td><td>RO</td><td>[9:0] raw code of V_BE, [25:16] averaged</td><td>latest B</td></tr>
 <tr><td><code>0x18</code></td><td>ID</td><td>RO</td><td>[31:0]</td><td>magic + version (<code>0x7E4D0001</code> assumed)</td></tr>
 </table></div>
-<p class="meta">Software converts code to &deg;C with <code>T = A&middot;code + B</code> (A, B documented after Phase 3). A hardware linear converter is not in v1 (decision D7).</p>
+<p class="meta">Software reads <code>P</code> and <code>B</code>, forms <code>&mu; = P/(B+P)</code> and converts with <code>T = A&middot;&mu; + B0</code> (A, B0 documented after Phase 3). Hardware does only the alarm compare, as <code>P &gt; thr&middot;(B+P)</code> with one serial shift-and-add (about 12 cycles, no parallel multiplier, to save area). A hardware &deg;C converter is not in v1 (D7).</p>
 
 <h3>6.4 Behavioral rules (digital)</h3>
 <ul>
@@ -657,7 +672,7 @@ svg .arrow{fill:var(--ink-soft)}
 <tr><td><code>judge_sensor.sh</code></td><td>netlist &rarr; ngspice temp sweep -40..125, corners &rarr; metrics</td><td>xschem, ngspice (PSP103, <code>pnpMPA</code> model), Python</td><td>V_PTAT slope and linearity, V_REF range, startup, supply sensitivity within 5.2</td></tr>
 <tr><td><code>judge_adc.sh</code></td><td>netlist &rarr; vlnggen <code>sar_logic.so</code> &rarr; ngspice ramp, 3 temps &rarr; <code>postprocess_adc.py</code></td><td>xschem, ngspice, Verilator (/opt/tools/bin)</td><td>DNL, INL, missing codes, monotonic (<em>script already exists and is tested</em>)</td></tr>
 <tr><td><code>judge_obi.sh</code></td><td>lint &rarr; self-checking testbench with behavioral ADC model &rarr; register access test</td><td>Verilator lint, Icarus Verilog 13</td><td>zero lint warnings, all assertions pass, map matches 6.3</td></tr>
-<tr><td><code>judge_int_sensor_adc.sh</code></td><td>sensor schematic + ADC schematic in one testbench, temp sweep</td><td>ngspice (Xyce for noise/Monte Carlo later)</td><td>code span, no clipping, settling, ratiometric check (supply &plusmn;5 % moves code &lt; 0.5 LSB)</td></tr>
+<tr><td><code>judge_int_sensor_adc.sh</code></td><td>sensor schematic + ADC schematic in one testbench, temp sweep</td><td>ngspice (Xyce for noise/Monte Carlo later)</td><td>code span, no clipping, settling, ratio check (slow supply ratiometric check (supply &plusmn;5 % moves code &lt; 0.5 LSB)plusmn;5 % moves &mu; by less than 0.5 LSB; also report area and average power)</td></tr>
 <tr><td><code>judge_int_obi_adc.sh</code></td><td>Verilog RTL + analog ADC via <code>d_cosim</code>, OBI write &rarr; convert &rarr; read</td><td>ngspice + Verilator, Icarus</td><td>DATA matches ADC output; THRESH/IRQ timing; DIV and AVG honored</td></tr>
 <tr><td><code>judge_system.sh</code></td><td>temperature sweep &rarr; OBI read &rarr; &deg;C by A,B &rarr; corners &rarr; budget</td><td>all of the above</td><td>5.1 table, 5.3 recomputed</td></tr>
 <tr><td><code>judge_layout.sh</code></td><td>KLayout DRC (PDK deck), LVS vs schematic, extraction (kpex/magic), post-layout temp sweep</td><td>KLayout, magic, netgen, kpex (analog env); the course's <code>run_lvs.py</code>/<code>run_drc.py</code> flows</td><td>0 DRC violations, LVS match, post-layout metrics still within 5.2</td></tr>
@@ -704,26 +719,27 @@ BLOCKS: &lt;what cannot proceed until answered&gt;</code></pre>
 
 <div class="dec">
   <h3>D1. ADC resolution and what "resolution" means</h3>
-  <p>With ratiometric &mu; spanning about 0.2&ndash;0.27 of full scale over -40..125 &deg;C:</p>
+  <p>With &mu; = P/(B+P) spanning about 0.25 of full scale over -40..125 &deg;C (each of the two codes also adds up to &plusmn;0.5 LSB):</p>
   <div class="table-wrap"><table>
   <tr><th>Option</th><th>Single-conversion resolution</th><th>Cost</th></tr>
   <tr><td>A) 10-bit SAR</td><td>&asymp; 0.6&ndash;0.8 &deg;C/LSB</td><td>course blocks reused with 2 more bits; INL at 10 bit is within reach of a unit-cap C-DAC</td></tr>
   <tr><td>B) 12-bit SAR</td><td>&asymp; 0.15&ndash;0.2 &deg;C/LSB</td><td>4&times; capacitor area, tighter matching, likely needs calibration</td></tr>
+  <tr><td>D) 8-bit SAR (area/power first)</td><td>&asymp; 2.4&ndash;3 &deg;C/LSB</td><td>smallest C-DAC (1/4 of 10-bit) and fewest cycles, but too coarse for the &plusmn;3 &deg;C spec after quantization: not recommended</td></tr>
   <tr><td>C) 10-bit + offset subtraction (shift the window)</td><td>&asymp; 0.25&ndash;0.35 &deg;C/LSB</td><td>extra analog block in the sensor, more error terms</td></tr>
   </table></div>
-  <div class="rec"><strong>Recommend A.</strong> Thermal throttling and monitoring rarely need better than 1 &deg;C steps. Sensor accuracy (about &plusmn;1.5 &deg;C trimmed) is the limiter anyway. Keep averaging in digital for noise. Revisit B/C only if you need sub-0.5 &deg;C steps.</div>
+  <div class="rec"><strong>Recommend A, with the area priority applied:</strong> the ADC squad first reports C-DAC area for 9, 10 and 11 bits and the data decides. Thermal throttling and monitoring rarely need better than 1 &deg;C steps. Sensor accuracy (about &plusmn;1.5 &deg;C trimmed) is the limiter anyway. Keep averaging in digital for noise. Revisit B/C only if you need sub-0.5 &deg;C steps.</div>
 </div>
 
 <div class="dec">
-  <h3>D2. Reference scheme</h3>
-  <p>A) ratiometric (ADC reference = V<sub>REF</sub> from the probe) &mdash; B) absolute (a separate bandgap + ADC against it).</p>
-  <div class="rec"><strong>Recommend A.</strong> Fewer blocks, supply and reference errors cancel to first order, and it is the classic approach for BJT sensors. Cost: part of the code range is unused (D1).</div>
+  <h3>D2. Reference scheme (changed in v3)</h3>
+  <p>A) ADC reference = VDD = 1.2 V; convert V_BE and V_PTAT separately and divide digitally &mdash; B) reference generated by the probe (V<sub>BE</sub> + &alpha;&middot;&Delta;V<sub>BE</sub>, about 1.2 V) &mdash; C) separate bandgap block.</p>
+  <div class="rec"><strong>Recommend A.</strong> No reference generator or buffer (smallest area, lowest power), no headroom problem, and it matches your request that V<sub>REF</sub> is 1.2 V. Cost: two conversions per reading, and fast noise on VDD (baseband switching next to the macro) between the two conversions is not cancelled; the macro needs local decoupling and the two conversions run back to back. If post-layout noise fails, fall back to B.</div>
 </div>
 
 <div class="dec">
   <h3>D3. Supply domain for sensor and ADC</h3>
-  <p>On Croc the core supply is 1.2 V (<code>pad_vdd0</code>) and the I/O ring has its own supply (<code>pad_vddio*</code>, 3.3 V-class pads; to confirm). V<sub>REF</sub> &asymp; 1.2 V needs headroom. A) everything on the 1.2 V core rail with a scaled V<sub>REF</sub> (about 0.6 V, &alpha; adjusted) &mdash; B) analog on the I/O supply with level-shifters at the digital boundary (needs extra pads, see D12).</p>
-  <div class="rec"><strong>Recommend A for v1 if the sensor squad confirms the 0.6 V scaling works; fallback B.</strong> I have not confirmed which supply the course's bandgap uses; the sensor squad's first action is to read <code>modules/module_1_bandgap_reference</code> and report. This is the least certain analog item in the document.</div>
+  <p>On Croc the core supply is 1.2 V (<code>pad_vdd0</code>); the I/O ring has its own supply (3.3 V-class pads, to confirm). A) everything on the 1.2 V core rail, V<sub>REF</sub> = VDD = 1.2 V &mdash; B) analog on the I/O supply with level shifters (extra pads, D12).</p>
+  <div class="rec"><strong>Recommend A.</strong> The course bandgap also runs on 1.2 V (its README says 0&ndash;1.2 V). With the reference equal to VDD there is no headroom issue; the sensor squad only has to show V_BE and V_PTAT stay inside 0&ndash;1.2 V. No level shifters needed. Fallback B only if that fails.</div>
 </div>
 
 <div class="dec">
@@ -733,9 +749,9 @@ BLOCKS: &lt;what cannot proceed until answered&gt;</code></pre>
 </div>
 
 <div class="dec">
-  <h3>D5. Sample rate and clocking</h3>
-  <p>100 S/s required; clock input 100 kHz&ndash;1 MHz after divider; conversion = bits + 2 cycles.</p>
-  <div class="rec"><strong>Recommend as stated.</strong> Slow clock makes settling and power trivial and lets the course's comparator and switches work unchanged.</div>
+  <h3>D5. Sample rate and clocking (lowered in v3)</h3>
+  <p>&ge; 10 S/s (a reading is two conversions, &le; 100 ms); <code>clk_adc</code> 10&ndash;100 kHz; conversion = bits + 2 cycles; bias and ADC powered only during a reading; continuous mode off by default.</p>
+  <div class="rec"><strong>Recommend as stated.</strong> A slow clock keeps dynamic power negligible and lets comparator and switches use smaller devices. If area or power needs it, the rate can drop to 1 S/s without breaking the contract; 10 S/s is only the target.</div>
 </div>
 
 <div class="dec">
@@ -980,7 +996,7 @@ BLOCKS: &lt;what cannot proceed until answered&gt;</code></pre>
 <tr><td>Fill and seal ring</td><td>Croc's metal/active fill could add shapes inside the analog macro and change matching</td><td>layout-designer provides fill-blocking markers; reviewer checks the filled GDS, not only the unfilled one</td></tr>
 <tr><td>Long runs</td><td>L3 is hours; a bad edit wastes a day</td><td>L1/L2 first, L3 only at a gate, minimal DRC while iterating</td></tr>
 <tr><td>Digital capacity for the baseband</td><td>stock die is pad-limited (3.67 mm&sup2;) at 44 % utilization; a large baseband may need a bigger die or higher utilization, and then timing at 100 MHz is already "aggressive" per Croc's own notes</td><td>out of this project's scope; recorded so the Phase-0 baseline captures achievable utilization and congestion per D11</td></tr>
-<tr><td>Supply headroom (D3)</td><td>V<sub>REF</sub> &asymp; 1.2 V does not fit a 1.2 V rail</td><td>scaled reference or 3.3 V analog supply; decide before Phase 1</td></tr>
+<tr><td>VDD as reference (D2)</td><td>V<sub>REF</sub> = VDD carries baseband switching noise and IR drop; the two conversions see different VDD values</td><td>local decoupling inside the macro (costs area), conversions back to back, optional quiet window set by software; post-layout sweep with digital activity; fallback is the probe-generated reference</td></tr>
 <tr><td>ADC bit order</td><td>course notebook lists bits as <code>D0..D6,D0</code>; README says D0 is MSB</td><td>judge takes <code>--bits</code>; confirmed with a known code in Phase 0</td></tr>
 <tr><td>Co-simulation</td><td>ngspice <code>d_cosim</code> needs Verilator-built <code>.so</code>; slow for long ramps</td><td>judge builds <code>.so</code>; keep ramp &ge; 4 samples/code, not more</td></tr>
 <tr><td>Simulation time</td><td>10-bit ramp with 4 samples/code is ~4096 conversions &times; 12 cycles; transistor-level may take hours</td><td>use a ramp with fewer points for loop rounds, full ramp only at the gate</td></tr>
